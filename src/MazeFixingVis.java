@@ -14,10 +14,11 @@ import java.awt.event.WindowListener;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.security.SecureRandom;
 import java.util.Vector;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -39,17 +40,13 @@ class Path {
 }
 
 public class MazeFixingVis {
+	static final int MAX_TIME = 10000;
 	// east, south, west, north - absolute directions
 	final int[] dr = { 0, 1, 0, -1 };
-
 	final int[] dc = { 1, 0, -1, 0 };
-
 	final char[] rls = { 'R', 'U', 'L', 'S', 'E' };
-
 	String[] maze;
-
 	char[][] M;
-
 	int W, H, F, N;
 
 	// -----------------------------------------
@@ -90,10 +87,8 @@ public class MazeFixingVis {
 					N -= 4;
 				}
 			}
-			//
 			F = r1.nextInt(N / 3 - N / 10) + N / 10;
-			addFatalError("W = " + W + ", H = " + H + ", cells in maze N = " + N);
-			addFatalError("Cells to fix F = " + F);
+			addFatalError("W = " + W + ", H = " + H + ", cells in maze N = " + N + ", F = " + F);
 
 			maze = new String[H];
 			for (i = 0; i < H; i++)
@@ -189,7 +184,7 @@ public class MazeFixingVis {
 		for (int r = 0; r < H; ++r)
 			for (int c = 0; c < W; ++c)
 				if (!outside(r, c) && visitedOverall[r][c]) nvis++;
-		System.out.println("Score = " + nvis + " / " + N);
+		System.out.println("Score = " + nvis + " / " + N + "    "+ ((double)nvis/N));
 		return (double) nvis / N;
 	}
 
@@ -300,11 +295,7 @@ public class MazeFixingVis {
 	}
 
 	// ------------- visualization part ------------
-	static String exec;
-
 	static boolean vis, debug;
-
-	static Process proc;
 
 	static int SZ;
 
@@ -407,11 +398,6 @@ public class MazeFixingVis {
 
 		//WindowListener
 		public void windowClosing(WindowEvent e) {
-			if (proc != null) try {
-				proc.destroy();
-			} catch (Exception ex) {
-				ex.printStackTrace();
-			}
 			System.exit(0);
 		}
 
@@ -429,7 +415,7 @@ public class MazeFixingVis {
 	}
 
 	// -----------------------------------------
-	public MazeFixingVis(long seed) {
+	public MazeFixingVis() {
 		try {
 			//interface for runTest
 			if (vis) {
@@ -439,24 +425,6 @@ public class MazeFixingVis {
 				if (vis) v.addMouseListener(v);
 				jf.addWindowListener(v);
 			}
-			if (exec != null) {
-				try {
-					Runtime rt = Runtime.getRuntime();
-					proc = rt.exec(exec);
-					os = proc.getOutputStream();
-					is = proc.getInputStream();
-					br = new BufferedReader(new InputStreamReader(is));
-					new ErrorReader(proc.getErrorStream()).start();
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-			System.out.println("Score = " + runTest(seed));
-			if (proc != null) try {
-				proc.destroy();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -464,20 +432,54 @@ public class MazeFixingVis {
 
 	// -----------------------------------------
 	public static void main(String[] args) {
-		long seed = 1;
-		vis = true;
+		vis = false;
 		SZ = 14;
 		debug = false;
 		for (int i = 0; i < args.length; i++) {
-			if (args[i].equals("-seed")) seed = Long.parseLong(args[++i]);
-			if (args[i].equals("-exec")) exec = args[++i];
 			if (args[i].equals("-vis")) vis = true;
 			if (args[i].equals("-debug")) debug = true;
 			if (args[i].equals("-size")) SZ = Integer.parseInt(args[++i]);
 		}
-		for (; seed < 10; ++seed) {
-			new MazeFixingVis(seed);
+		if (true) {
+			vis = true;
+			final long init = 1;
+			final long last = 100;
+			double sum = 0;
+			for (long seed = init; seed <= last; ++seed) {
+				sum += new MazeFixingVis().runTest(seed);
+			}
+			System.out.println(init + " ~ " + last + " : " + sum);
+		} else {
+			new MazeFixingVis().test();
 		}
+	}
+
+	void test() {
+		class ParameterClass {
+			volatile double d;
+			volatile int timeover;
+		}
+		vis = false;
+		debug = false;
+		final ParameterClass sum = new ParameterClass();
+		ExecutorService es = Executors.newFixedThreadPool(3);
+
+		for (int seed = 1, size = seed + 1000; seed < size; seed++) {
+			final int Seed = seed;
+			es.submit(() -> {
+				try {
+					long time = System.currentTimeMillis();
+					double score = new MazeFixingVis().runTest(Seed);
+					time = System.currentTimeMillis() - time;
+					sum.d += score;
+					if (time > MAX_TIME) sum.timeover++;
+					System.out.println(String.format("%3d   %.3f   %4d   %.1f   %d", Seed, score, time, sum.d, sum.timeover));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			});
+		}
+		es.shutdown();
 	}
 
 	// -----------------------------------------
