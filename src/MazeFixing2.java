@@ -4,7 +4,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class MazeFixing {
+public class MazeFixing2 {
 
 	private static final int MAX_TIME = 9500;
 	private final long endTime = System.currentTimeMillis() + MAX_TIME;
