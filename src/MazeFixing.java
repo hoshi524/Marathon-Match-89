@@ -9,7 +9,7 @@ public class MazeFixing {
 	private static final int MAX_TIME = 9500;
 	private final long endTime = System.currentTimeMillis() + MAX_TIME;
 
-	int W, H, WH, dir[], start[];
+	int W, H, WH, dir[], start[], notN[];
 	Cell init[];
 
 	public String[] improve(String[] maze, int F) {
@@ -26,8 +26,10 @@ public class MazeFixing {
 		init = Arrays.copyOf(m, m.length);
 		{
 			Set<Integer> pos = new HashSet<>();
+			List<Integer> cell = new ArrayList<>();
 			for (int i = 0; i < WH; ++i) {
 				if (m[i] != Cell.N) {
+					cell.add(i);
 					for (int d : dir) {
 						int n = i + d;
 						if (m[n] == Cell.N) pos.add(n);
@@ -35,43 +37,69 @@ public class MazeFixing {
 				}
 			}
 			start = toArray(new ArrayList<Integer>(pos));
+			notN = toArray(cell);
 		}
 		State best = new State(init);
 		XorShift rnd = new XorShift();
 		State start = new State(init);
-		start.calcScore();
+		start.calc();
 		int pos[] = new int[WH], pi;
 		Cell cell[] = new Cell[] { Cell.L, Cell.R, Cell.S };
-		while (System.currentTimeMillis() < endTime) {
+		while (System.currentTimeMillis() + 6000 < endTime) {
 			State now = new State(start);
 			for (int f = 0; f < F; ++f) {
 				State fs = new State(now);
 				for (int i = 0; i < 100; ++i) {
 					State tmp = new State(fs);
 					pi = 0;
-					for (int j = 0; j < WH; ++j)
-						if (tmp.count[j] > 0) pos[pi++] = j;
+					for (int j : notN)
+						if (tmp.m[j] != Cell.E && tmp.count[j] > 0) pos[pi++] = j;
 					int p = pos[Math.abs(rnd.next()) % pi];
 					Cell c = cell[Math.abs(rnd.next()) % cell.length];
 					while (c == tmp.m[p])
 						c = cell[Math.abs(rnd.next()) % cell.length];
 					if (init[p] != c) ++tmp.f;
 					tmp.m[p] = c;
-					tmp.calcScore();
-					if (now.score < tmp.score) {
-						now = tmp;
-					}
+					tmp.calc();
+					if (now.v1() < tmp.v1()) now = tmp;
 				}
 			}
-			if (best.score < now.score) {
+			if (best.v1() < now.v1()) {
 				best = now;
+			}
+		}
+		while (System.currentTimeMillis() < endTime) {
+			State now = new State(best);
+			for (int i = 0; i < 0xff; ++i) {
+				State tmp = new State(now);
+				{
+					pi = 0;
+					for (int j : notN)
+						if (init[j] != tmp.m[j]) pos[pi++] = j;
+					int p = pos[Math.abs(rnd.next()) % pi];
+					--tmp.f;
+					tmp.m[p] = init[p];
+				}
+				{
+					pi = 0;
+					for (int j : notN)
+						if (tmp.m[j] != Cell.E && tmp.count[j] > 0) pos[pi++] = j;
+					int p = pos[Math.abs(rnd.next()) % pi];
+					Cell c = cell[Math.abs(rnd.next()) % cell.length];
+					while (c == tmp.m[p])
+						c = cell[Math.abs(rnd.next()) % cell.length];
+					if (init[p] != c) ++tmp.f;
+					tmp.m[p] = c;
+				}
+				tmp.calc();
+				if (best.vc < tmp.vc) best = tmp;
 			}
 		}
 		return best.toString(init);
 	}
 
 	class State {
-		int score, f, value[], count[];
+		int value[], count[], f, vc, cc;
 		Cell m[];
 
 		State(Cell m[]) {
@@ -80,13 +108,14 @@ public class MazeFixing {
 
 		State(State s) {
 			m = Arrays.copyOf(s.m, WH);
-			score = s.score;
 			f = s.f;
 			value = s.value;
 			count = s.count;
+			vc = s.vc;
+			cc = s.cc;
 		}
 
-		void calcScore() {
+		void calc() {
 			value = new int[WH];
 			count = new int[WH];
 			boolean used[] = new boolean[WH];
@@ -99,12 +128,22 @@ public class MazeFixing {
 					}
 				}
 			}
-			score = count(value, m);
+			vc = cc = 0;
+			for (int p : notN) {
+				if (count[p] > 0) {
+					++cc;
+					if (value[p] > 0) ++vc;
+				}
+			}
+		}
+
+		int v1() {
+			return (cc << 10) + vc;
 		}
 
 		String[] toString(Cell init[]) {
 			ArrayList<String> res = new ArrayList<>();
-			for (int i = 0; i < WH; ++i) {
+			for (int i : notN) {
 				if (m[i] != init[i]) {
 					res.add(getRow(i) + " " + getCol(i) + " " + m[i]);
 				}
@@ -175,14 +214,6 @@ public class MazeFixing {
 		int res[] = new int[list.size()];
 		for (int i = 0; i < res.length; ++i) {
 			res[i] = list.get(i);
-		}
-		return res;
-	}
-
-	int count(int v[], Cell m[]) {
-		int res = 0;
-		for (int i = 0; i < WH; ++i) {
-			if (v[i] > 0 && m[i] != Cell.N) ++res;
 		}
 		return res;
 	}
