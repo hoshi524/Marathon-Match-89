@@ -443,7 +443,7 @@ public class MazeFixingVis {
 		if (false) {
 			vis = true;
 			final long init = 1;
-			final long last = 100;
+			final long last = 10;
 			double sum = 0;
 			for (long seed = init; seed <= last; ++seed) {
 				sum += new MazeFixingVis().runTest(seed);
@@ -463,7 +463,7 @@ public class MazeFixingVis {
 		vis = false;
 		debug = false;
 		final ParameterClass sum = new ParameterClass();
-		ExecutorService es = Executors.newFixedThreadPool(6);
+		ExecutorService es = Executors.newFixedThreadPool(5);
 
 		for (int seed = 1, size = seed + 100; seed < size; seed++) {
 			final int Seed = seed;

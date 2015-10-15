@@ -1,16 +1,20 @@
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 public class MazeFixing {
 
 	private static final int MAX_TIME = 9500;
+	private static final Cell cell[] = new Cell[] { Cell.L, Cell.R, Cell.S };
 	private final long endTime = System.currentTimeMillis() + MAX_TIME;
 
-	int W, H, WH, F, dir[], start[], notN[];
-	Cell init[];
+	private int W, H, WH, F, dir[], startPos[], startDir[], notN[];
+	private Cell init[];
 
 	public String[] improve(String[] maze, int F) {
 		H = maze.length;
@@ -26,101 +30,146 @@ public class MazeFixing {
 		}
 		init = Arrays.copyOf(m, m.length);
 		{
-			Set<Integer> pos = new HashSet<>();
+			List<Integer> spos = new ArrayList<>();
+			List<Integer> sdir = new ArrayList<>();
 			List<Integer> cell = new ArrayList<>();
 			for (int i = 0; i < WH; ++i) {
 				if (m[i] != Cell.N) {
 					cell.add(i);
 					for (int d : dir) {
 						int n = i + d;
-						if (m[n] == Cell.N) pos.add(n);
+						if (m[n] == Cell.N) {
+							spos.add(i);
+							sdir.add(-d);
+						}
 					}
 				}
 			}
-			start = toArray(new ArrayList<Integer>(pos));
+			startPos = toArray(spos);
+			startDir = toArray(sdir);
 			notN = toArray(cell);
 		}
-		State best = new State(init), now = new State(init);
-		now.calc();
 		XorShift rnd = new XorShift();
+		State now = new State(m);
+		now.calc();
+		int score = 0;
+		Cell best[] = Arrays.copyOf(init, WH);
 		int pos[] = new int[notN.length], pi;
 		int dpos[] = new int[notN.length], f;
-		Cell cell[] = new Cell[] { Cell.L, Cell.R, Cell.S };
 		while (true) {
-			f = pi = 0;
-			for (int j : notN) {
-				if (now.m[j] != init[j]) dpos[f++] = j;
-				if (now.m[j] != Cell.E && now.b[j]) pos[pi++] = j;
-			}
-			State fs = new State(now);
-			for (int i = 0; i < 0x1f; ++i) {
-				State tmp = new State(fs);
-				if (Math.abs(rnd.next()) % F < f) {
-					int a = dpos[Math.abs(rnd.next()) % f];
-					tmp.m[a] = init[a];
+			for (int turn = 0; turn < 5; ++turn) {
+				f = pi = 0;
+				for (int j : notN) {
+					if (now.m[j] != init[j]) dpos[f++] = j;
+					if (now.m[j] != Cell.E && now.b[j] > 0) pos[pi++] = j;
 				}
-				tmp.m[pos[Math.abs(rnd.next()) % pi]] = cell[Math.abs(rnd.next()) % cell.length];
-				tmp.calc();
-				if (now.value(f) < tmp.value(f)) now = tmp;
+				int value = now.value(f);
+				Map<Integer, Cell> next = null;
+				for (int i = 0; i < 0x2f; ++i) {
+					Map<Integer, Cell> map = new HashMap<>();
+					if (f > 0 && rnd.next(F) < f) {
+						int a = dpos[rnd.next(f)];
+						map.put(a, init[a]);
+					}
+					map.put(pos[rnd.next(pi)], cell[rnd.next(cell.length)]);
+					int tmp = now.value(map, f);
+					if (value < tmp) {
+						value = tmp;
+						next = map;
+					}
+				}
+				if (next != null) {
+					for (Entry<Integer, Cell> entry : next.entrySet()) {
+						now.m[entry.getKey()] = entry.getValue();
+					}
+					now.calc();
+					if (score < now.ac) {
+						score = now.ac;
+						System.arraycopy(now.m, 0, best, 0, WH);
+					}
+				}
 			}
-			if (best.value(F) < now.value(F)) best = now;
-			if (System.currentTimeMillis() > endTime) return best.toAnswer();
+			if (System.currentTimeMillis() > endTime) {
+				return toAnswer(best);
+			}
 		}
 	}
 
-	class State {
+	private final class State {
 		int ac, bc;
-		Cell m[];
-		boolean a[], b[];
+		Cell m[] = new Cell[WH], tmp[] = new Cell[WH];
+		int a[] = new int[WH], b[] = new int[WH], start[][] = new int[WH][128];
+		int si[] = new int[WH], path[] = new int[WH];
+		boolean used[] = new boolean[WH];
+		int[] delA = new int[WH], delB = new int[WH];
+		int[] addA = new int[WH], addB = new int[WH];
+		Set<Integer> startSet = new HashSet<>();
 
 		State(Cell m[]) {
-			this.m = m;
-		}
-
-		State(State s) {
-			m = Arrays.copyOf(s.m, WH);
-			a = s.a;
-			b = s.b;
-			ac = s.ac;
-			bc = s.bc;
+			System.arraycopy(m, 0, this.m, 0, WH);
 		}
 
 		void calc() {
-			a = new boolean[WH];
-			b = new boolean[WH];
-			boolean used[] = new boolean[WH];
-			int path[] = new int[WH];
-			for (int p : start) {
-				for (int d : dir) {
-					int n = p + d;
-					if (n >= 0 && n < WH && m[n] != Cell.N) {
-						dfs(a, path, 0, m, n, d, used, b);
-					}
-				}
+			Arrays.fill(a, 0);
+			Arrays.fill(b, 0);
+			Arrays.fill(si, 0);
+			for (int i = 0; i < startPos.length; ++i) {
+				dfs(i, a, path, 0, m, startPos[i], startDir[i], used, b);
 			}
 			ac = bc = 0;
 			for (int p : notN) {
-				if (b[p]) {
+				if (b[p] > 0) {
 					++bc;
-					if (a[p]) ++ac;
+					if (a[p] > 0) ++ac;
 				}
 			}
 		}
 
-		void dfs(boolean a[], int path[], int pi, Cell m[], int p, int d, boolean used[], boolean b[]) {
+		int value(Map<Integer, Cell> map, int f) {
+			startSet.clear();
+			System.arraycopy(m, 0, tmp, 0, WH);
+			for (Entry<Integer, Cell> entry : map.entrySet()) {
+				int p = entry.getKey();
+				Cell c = entry.getValue();
+				for (int i = 0, size = si[p]; i < size; ++i) {
+					startSet.add(start[p][i]);
+				}
+				tmp[p] = c;
+			}
+			Arrays.fill(delA, 0);
+			Arrays.fill(delB, 0);
+			Arrays.fill(addA, 0);
+			Arrays.fill(addB, 0);
+			for (Integer i : startSet) {
+				dfs(-1, delA, path, 0, m, startPos[i], startDir[i], used, delB);
+				dfs(-1, addA, path, 0, tmp, startPos[i], startDir[i], used, addB);
+			}
+			int ac = 0, bc = 0;
+			for (int p : notN) {
+				if (b[p] + addB[p] > delB[p]) {
+					++bc;
+					if (a[p] + addA[p] > delA[p]) ++ac;
+				}
+			}
+			return value(f, ac, bc);
+		}
+
+		void dfs(int s, int a[], int path[], int pi, Cell m[], int p, int d, boolean used[], int b[]) {
 			if (used[p]) return;
 			if (m[p] == Cell.N) {
 				for (int i = 0; i < pi; ++i)
-					a[path[i]] = true;
+					++a[path[i]];
 				return;
 			}
 			path[pi++] = p;
-			used[p] = b[p] = true;
+			used[p] = true;
+			++b[p];
 			if (m[p] == Cell.E) {
 				for (int x : dir) {
-					dfs(a, path, pi, m, p + x, x, used, b);
+					dfs(s, a, path, pi, m, p + x, x, used, b);
 				}
 			} else {
+				if (s != -1 && (si[p] == 0 || start[p][si[p] - 1] != s)) start[p][si[p]++] = s;
 				if (m[p] == Cell.R) {
 					if (d == 1) d = W;
 					else if (d == -1) d = -W;
@@ -134,27 +183,31 @@ public class MazeFixing {
 				} else if (m[p] == Cell.U) {
 					d = -d;
 				}
-				dfs(a, path, pi, m, p + d, d, used, b);
+				dfs(s, a, path, pi, m, p + d, d, used, b);
 			}
 			used[p] = false;
 		}
 
 		int value(int f) {
-			return bc * (F - f) + ac * f;
+			return value(f, ac, bc);
 		}
 
-		String[] toAnswer() {
-			ArrayList<String> res = new ArrayList<>();
-			for (int i : notN) {
-				if (m[i] != init[i]) {
-					res.add(getRow(i) + " " + getCol(i) + " " + m[i]);
-				}
-			}
-			return res.toArray(new String[0]);
+		int value(int f, int ac, int bc) {
+			return (bc << 3) * (F - f) + ac * f;
 		}
 	}
 
-	enum Cell {
+	private String[] toAnswer(Cell m[]) {
+		ArrayList<String> res = new ArrayList<>();
+		for (int i : notN) {
+			if (m[i] != init[i]) {
+				res.add(getRow(i) + " " + getCol(i) + " " + m[i]);
+			}
+		}
+		return res.toArray(new String[0]);
+	}
+
+	private static enum Cell {
 		N, R, L, U, S, E;
 
 		static Cell get(char c) {
@@ -167,19 +220,19 @@ public class MazeFixing {
 		}
 	}
 
-	int getPos(int r, int c) {
+	private int getPos(int r, int c) {
 		return r * W + c;
 	}
 
-	int getRow(int p) {
+	private int getRow(int p) {
 		return p / W;
 	}
 
-	int getCol(int p) {
+	private int getCol(int p) {
 		return p % W;
 	}
 
-	int[] toArray(List<Integer> list) {
+	private int[] toArray(List<Integer> list) {
 		int res[] = new int[list.size()];
 		for (int i = 0; i < res.length; ++i) {
 			res[i] = list.get(i);
@@ -187,50 +240,24 @@ public class MazeFixing {
 		return res;
 	}
 
-	void print(Cell m[]) {
-		for (int i = 0; i < H; ++i) {
-			for (int j = 0; j < W; ++j) {
-				System.out.print(m[getPos(i, j)]);
-			}
-			System.out.println();
-		}
-	}
+	private static final class XorShift {
+		int x = 123456789;
+		int y = 362436069;
+		int z = 521288629;
+		int w = 88675123;
 
-	void print(int v[]) {
-		for (int i = 0; i < H; ++i) {
-			for (int j = 0; j < W; ++j) {
-				System.out.print(v[getPos(i, j)] > 0 ? '*' : ' ');
-			}
-			System.out.println();
-		}
-	}
-
-	class XorShift {
-		private long x, y, z, w;
-
-		{
-			x = 123456789;
-			y = 362436069;
-			z = 521288629;
-			w = 88675123;
-		}
-
-		int next() {
-			long t = (x ^ x << 11);
+		int next(final int n) {
+			final int t = x ^ (x << 11);
 			x = y;
 			y = z;
 			z = w;
-			w = (w ^ w >>> 19 ^ t ^ t >>> 8);
-			return (int) w;
+			w = (w ^ (w >>> 19)) ^ (t ^ (t >>> 8));
+			final int r = w % n;
+			return r < 0 ? r + n : r;
 		}
+	}
 
-		long nextLong() {
-			long t = (x ^ x << 11);
-			x = y;
-			y = z;
-			z = w;
-			w = (w ^ w >>> 19 ^ t ^ t >>> 8);
-			return w;
-		}
+	private void debug(Object... o) {
+		System.out.println(Arrays.deepToString(o));
 	}
 }
