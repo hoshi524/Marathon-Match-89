@@ -184,7 +184,7 @@ public class MazeFixingVis {
 		for (int r = 0; r < H; ++r)
 			for (int c = 0; c < W; ++c)
 				if (!outside(r, c) && visitedOverall[r][c]) nvis++;
-		System.out.println("Score = " + nvis + " / " + N + "    "+ ((double)nvis/N));
+		System.out.println("Score = " + nvis + " / " + N + "    " + ((double) nvis / N));
 		return (double) nvis / N;
 	}
 
@@ -457,12 +457,13 @@ public class MazeFixingVis {
 	void test() {
 		class ParameterClass {
 			volatile double d;
+			volatile int c;
 			volatile int timeover;
 		}
 		vis = false;
 		debug = false;
 		final ParameterClass sum = new ParameterClass();
-		ExecutorService es = Executors.newFixedThreadPool(3);
+		ExecutorService es = Executors.newFixedThreadPool(6);
 
 		for (int seed = 1, size = seed + 100; seed < size; seed++) {
 			final int Seed = seed;
@@ -472,8 +473,10 @@ public class MazeFixingVis {
 					double score = new MazeFixingVis().runTest(Seed);
 					time = System.currentTimeMillis() - time;
 					sum.d += score;
+					++sum.c;
 					if (time > MAX_TIME) sum.timeover++;
-					System.out.println(String.format("%3d   %.3f   %4d   %.1f   %d", Seed, score, time, sum.d, sum.timeover));
+					System.out.println(String.format("%3d   %.3f   %4d   %.1f   %.3f   %d", Seed, score, time, sum.d, sum.d / sum.c,
+							sum.timeover));
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
