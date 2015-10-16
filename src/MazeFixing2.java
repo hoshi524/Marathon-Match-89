@@ -2,7 +2,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 
 public class MazeFixing2 {
@@ -49,27 +48,35 @@ public class MazeFixing2 {
 		}
 		XorShift rnd = new XorShift();
 		State now = new State(m);
+		{
+			int pos[] = new int[WH], pi = 0;
+			for (int j : notN) {
+				if (now.m[j] == Cell.U) {
+					pos[pi++] = j;
+				}
+			}
+			for (int f = 0; f < F && pi > 0; ++f) {
+				int index = rnd.next(pi), p = pos[index];
+				now.m[p] = Cell.S;
+				pos[index] = pos[--pi];
+			}
+		}
 		now.calc();
 		int score = 0;
 		Cell best[] = Arrays.copyOf(init, WH);
 		int pos[] = new int[notN.length << 1], pi;
 		int dpos[] = new int[notN.length], f;
 		while (true) {
-			for (int turn = 0; turn < 5; ++turn) {
+			for (int turn = 0; turn < 3; ++turn) {
 				f = pi = 0;
 				for (int j : notN) {
-					if (now.m[j] != init[j]) {
-						dpos[f++] = j;
-					}
-					if (now.m[j] != Cell.E && now.b[j] > 0) {
-						pos[pi++] = j;
-						if (now.m[j] == Cell.U) pos[pi++] = j;
-					}
+					if (now.m[j] != init[j]) dpos[f++] = j;
+					if (now.m[j] != Cell.E && now.b[j] > 0) pos[pi++] = j;
 				}
-				int value = now.value(f);
-				Map<Integer, Cell> next = null;
-				for (int i = 0; i < 0x2f; ++i) {
-					Map<Integer, Cell> map = new HashMap<>();
+				int value = 0;
+				HashMap<Integer, Cell> next = null;
+				for (int i = 0; i < 0x3f; ++i) {
+					HashMap<Integer, Cell> map = new HashMap<>();
 					if (rnd.next(F) < f) {
 						int a = dpos[rnd.next(f)];
 						map.put(a, init[a]);
@@ -100,13 +107,10 @@ public class MazeFixing2 {
 
 	private final class State {
 		int ac, bc;
-		Cell m[] = new Cell[WH], tmp[] = new Cell[WH];
+		Cell m[] = new Cell[WH];
 		int a[] = new int[WH], b[] = new int[WH], start[][] = new int[WH][64];
 		int si[] = new int[WH], path[] = new int[WH];
 		boolean used[] = new boolean[WH];
-		int[] delA = new int[WH], delB = new int[WH];
-		int[] addA = new int[WH], addB = new int[WH];
-		boolean startI[] = new boolean[WH];
 
 		State(Cell m[]) {
 			System.arraycopy(m, 0, this.m, 0, WH);
@@ -128,28 +132,32 @@ public class MazeFixing2 {
 			}
 		}
 
-		int value(Map<Integer, Cell> map, int f) {
-			Arrays.fill(startI, false);
-			System.arraycopy(m, 0, tmp, 0, WH);
+		int value(HashMap<Integer, Cell> map, int f) {
+			boolean ud[] = new boolean[startPos.length];
+			Cell tmp[] = Arrays.copyOf(m, WH);
+			int delA[] = new int[WH];
+			int delB[] = new int[WH];
+			int addA[] = new int[WH];
+			int addB[] = new int[WH];
+			int buf[] = new int[0xff], bi = 0;
 			for (Entry<Integer, Cell> entry : map.entrySet()) {
 				int p = entry.getKey();
 				Cell c = entry.getValue();
 				if (m[p] != c) {
 					for (int i = 0, size = si[p]; i < size; ++i) {
-						startI[start[p][i]] = true;
+						int x = start[p][i];
+						if (!ud[x]) {
+							ud[x] = true;
+							buf[bi++] = x;
+						}
 					}
 					tmp[p] = c;
 				}
 			}
-			Arrays.fill(delA, 0);
-			Arrays.fill(delB, 0);
-			Arrays.fill(addA, 0);
-			Arrays.fill(addB, 0);
-			for (int i = 0; i < startPos.length; ++i) {
-				if (startI[i]) {
-					dfs(-1, delA, path, 0, m, startPos[i], startDir[i], used, delB);
-					dfs(-1, addA, path, 0, tmp, startPos[i], startDir[i], used, addB);
-				}
+			for (int i = 0; i < bi; ++i) {
+				int x = buf[i];
+				dfs(-1, delA, path, 0, m, startPos[x], startDir[x], used, delB);
+				dfs(-1, addA, path, 0, tmp, startPos[x], startDir[x], used, addB);
 			}
 			int ac = 0, bc = 0;
 			for (int p : notN) {
@@ -158,7 +166,8 @@ public class MazeFixing2 {
 					if (a[p] + addA[p] > delA[p]) ++ac;
 				}
 			}
-			return value(f, ac, bc);
+			// value
+			return (bc << 4) * (F - f) + ac * f;
 		}
 
 		void dfs(int s, int a[], int path[], int pi, Cell m[], int p, int d, boolean used[], int b[]) {
@@ -194,14 +203,6 @@ public class MazeFixing2 {
 				dfs(s, a, path, pi, m, p + d, d, used, b);
 			}
 			used[p] = false;
-		}
-
-		int value(int f) {
-			return value(f, ac, bc);
-		}
-
-		int value(int f, int ac, int bc) {
-			return (bc << 4) * (F - f) + ac * f;
 		}
 	}
 
