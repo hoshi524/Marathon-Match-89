@@ -463,9 +463,9 @@ public class MazeFixingVis {
 		vis = false;
 		debug = false;
 		final ParameterClass sum = new ParameterClass();
-		ExecutorService es = Executors.newFixedThreadPool(5);
+		ExecutorService es = Executors.newFixedThreadPool(3);
 
-		for (int seed = 1, size = seed + 100; seed < size; seed++) {
+		for (int seed = 1, size = seed + 1000; seed < size; seed++) {
 			final int Seed = seed;
 			es.submit(() -> {
 				try {

@@ -101,7 +101,7 @@ public class MazeFixing2 {
 	private final class State {
 		int ac, bc;
 		Cell m[] = new Cell[WH], tmp[] = new Cell[WH];
-		int a[] = new int[WH], b[] = new int[WH], start[][] = new int[WH][128];
+		int a[] = new int[WH], b[] = new int[WH], start[][] = new int[WH][64];
 		int si[] = new int[WH], path[] = new int[WH];
 		boolean used[] = new boolean[WH];
 		int[] delA = new int[WH], delB = new int[WH];

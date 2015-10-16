@@ -1,11 +1,9 @@
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 public class MazeFixing {
 
@@ -18,7 +16,7 @@ public class MazeFixing {
 
 	public String[] improve(String[] maze, int F) {
 		H = maze.length;
-		W = maze[0].length();
+		W = maze[0].length() - 1;
 		WH = W * H;
 		this.F = F;
 		dir = new int[] { 1, -1, W, -W };
@@ -54,20 +52,25 @@ public class MazeFixing {
 		now.calc();
 		int score = 0;
 		Cell best[] = Arrays.copyOf(init, WH);
-		int pos[] = new int[notN.length], pi;
+		int pos[] = new int[notN.length << 1], pi;
 		int dpos[] = new int[notN.length], f;
 		while (true) {
 			for (int turn = 0; turn < 5; ++turn) {
 				f = pi = 0;
 				for (int j : notN) {
-					if (now.m[j] != init[j]) dpos[f++] = j;
-					if (now.m[j] != Cell.E && now.b[j] > 0) pos[pi++] = j;
+					if (now.m[j] != init[j]) {
+						dpos[f++] = j;
+					}
+					if (now.m[j] != Cell.E && now.b[j] > 0) {
+						pos[pi++] = j;
+						if (now.m[j] == Cell.U) pos[pi++] = j;
+					}
 				}
 				int value = now.value(f);
 				Map<Integer, Cell> next = null;
 				for (int i = 0; i < 0x2f; ++i) {
 					Map<Integer, Cell> map = new HashMap<>();
-					if (f > 0 && rnd.next(F) < f) {
+					if (rnd.next(F) < f) {
 						int a = dpos[rnd.next(f)];
 						map.put(a, init[a]);
 					}
@@ -98,12 +101,12 @@ public class MazeFixing {
 	private final class State {
 		int ac, bc;
 		Cell m[] = new Cell[WH], tmp[] = new Cell[WH];
-		int a[] = new int[WH], b[] = new int[WH], start[][] = new int[WH][128];
+		int a[] = new int[WH], b[] = new int[WH], start[][] = new int[WH][64];
 		int si[] = new int[WH], path[] = new int[WH];
 		boolean used[] = new boolean[WH];
 		int[] delA = new int[WH], delB = new int[WH];
 		int[] addA = new int[WH], addB = new int[WH];
-		Set<Integer> startSet = new HashSet<>();
+		boolean startI[] = new boolean[WH];
 
 		State(Cell m[]) {
 			System.arraycopy(m, 0, this.m, 0, WH);
@@ -126,23 +129,27 @@ public class MazeFixing {
 		}
 
 		int value(Map<Integer, Cell> map, int f) {
-			startSet.clear();
+			Arrays.fill(startI, false);
 			System.arraycopy(m, 0, tmp, 0, WH);
 			for (Entry<Integer, Cell> entry : map.entrySet()) {
 				int p = entry.getKey();
 				Cell c = entry.getValue();
-				for (int i = 0, size = si[p]; i < size; ++i) {
-					startSet.add(start[p][i]);
+				if (m[p] != c) {
+					for (int i = 0, size = si[p]; i < size; ++i) {
+						startI[start[p][i]] = true;
+					}
+					tmp[p] = c;
 				}
-				tmp[p] = c;
 			}
 			Arrays.fill(delA, 0);
 			Arrays.fill(delB, 0);
 			Arrays.fill(addA, 0);
 			Arrays.fill(addB, 0);
-			for (Integer i : startSet) {
-				dfs(-1, delA, path, 0, m, startPos[i], startDir[i], used, delB);
-				dfs(-1, addA, path, 0, tmp, startPos[i], startDir[i], used, addB);
+			for (int i = 0; i < startPos.length; ++i) {
+				if (startI[i]) {
+					dfs(-1, delA, path, 0, m, startPos[i], startDir[i], used, delB);
+					dfs(-1, addA, path, 0, tmp, startPos[i], startDir[i], used, addB);
+				}
 			}
 			int ac = 0, bc = 0;
 			for (int p : notN) {
@@ -165,9 +172,10 @@ public class MazeFixing {
 			used[p] = true;
 			++b[p];
 			if (m[p] == Cell.E) {
-				for (int x : dir) {
-					dfs(s, a, path, pi, m, p + x, x, used, b);
-				}
+				dfs(s, a, path, pi, m, p + 1, 1, used, b);
+				dfs(s, a, path, pi, m, p - 1, -1, used, b);
+				dfs(s, a, path, pi, m, p + W, W, used, b);
+				dfs(s, a, path, pi, m, p - W, -W, used, b);
 			} else {
 				if (s != -1 && (si[p] == 0 || start[p][si[p] - 1] != s)) start[p][si[p]++] = s;
 				if (m[p] == Cell.R) {
@@ -193,7 +201,7 @@ public class MazeFixing {
 		}
 
 		int value(int f, int ac, int bc) {
-			return (bc << 3) * (F - f) + ac * f;
+			return (bc << 4) * (F - f) + ac * f;
 		}
 	}
 
