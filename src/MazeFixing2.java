@@ -48,56 +48,52 @@ public class MazeFixing2 {
 		}
 		XorShift rnd = new XorShift();
 		State now = new State(m);
+		int score = 0;
+		Cell best[] = Arrays.copyOf(init, WH);
+		int pos[] = new int[notN.length], pi = 0;
+		int dpos[] = new int[notN.length], f;
 		{
-			int pos[] = new int[WH], pi = 0;
 			for (int j : notN) {
 				if (now.m[j] == Cell.U) {
 					pos[pi++] = j;
 				}
 			}
-			for (int f = 0; f < F && pi > 0; ++f) {
+			for (int i = 0; i < F && pi > 0; ++i) {
 				int index = rnd.next(pi), p = pos[index];
 				now.m[p] = Cell.S;
 				pos[index] = pos[--pi];
 			}
 		}
 		now.calc();
-		int score = 0;
-		Cell best[] = Arrays.copyOf(init, WH);
-		int pos[] = new int[notN.length << 1], pi;
-		int dpos[] = new int[notN.length], f;
+		HashMap<Integer, Cell> next = new HashMap<>(), map = new HashMap<>();
 		while (true) {
-			for (int turn = 0; turn < 3; ++turn) {
-				f = pi = 0;
-				for (int j : notN) {
-					if (now.m[j] != init[j]) dpos[f++] = j;
-					if (now.m[j] != Cell.E && now.b[j] > 0) pos[pi++] = j;
+			f = pi = 0;
+			for (int j : notN) {
+				if (now.m[j] != init[j]) dpos[f++] = j;
+				if (now.m[j] != Cell.E && now.b[j] > 0) pos[pi++] = j;
+			}
+			int value = 0;
+			for (int i = 0; i < 0x3f; ++i) {
+				map.clear();
+				if (rnd.next(F) < f) {
+					int a = dpos[rnd.next(f)];
+					map.put(a, init[a]);
 				}
-				int value = 0;
-				HashMap<Integer, Cell> next = null;
-				for (int i = 0; i < 0x3f; ++i) {
-					HashMap<Integer, Cell> map = new HashMap<>();
-					if (rnd.next(F) < f) {
-						int a = dpos[rnd.next(f)];
-						map.put(a, init[a]);
-					}
-					map.put(pos[rnd.next(pi)], cell[rnd.next(cell.length)]);
-					int tmp = now.value(map, f);
-					if (value < tmp) {
-						value = tmp;
-						next = map;
-					}
+				map.put(pos[rnd.next(pi)], cell[rnd.next(cell.length)]);
+				int tmp = now.value(map, f);
+				if (value < tmp) {
+					value = tmp;
+					next.clear();
+					next.putAll(map);
 				}
-				if (next != null) {
-					for (Entry<Integer, Cell> entry : next.entrySet()) {
-						now.m[entry.getKey()] = entry.getValue();
-					}
-					now.calc();
-					if (score < now.ac) {
-						score = now.ac;
-						System.arraycopy(now.m, 0, best, 0, WH);
-					}
-				}
+			}
+			for (Entry<Integer, Cell> entry : next.entrySet()) {
+				now.m[entry.getKey()] = entry.getValue();
+			}
+			now.calc();
+			if (score < now.ac) {
+				score = now.ac;
+				System.arraycopy(now.m, 0, best, 0, WH);
 			}
 			if (System.currentTimeMillis() > endTime) {
 				return toAnswer(best);
@@ -106,7 +102,7 @@ public class MazeFixing2 {
 	}
 
 	private final class State {
-		int ac, bc;
+		int ac;
 		Cell m[] = new Cell[WH];
 		int a[] = new int[WH], b[] = new int[WH], start[][] = new int[WH][64];
 		int si[] = new int[WH], path[] = new int[WH];
@@ -123,12 +119,9 @@ public class MazeFixing2 {
 			for (int i = 0; i < startPos.length; ++i) {
 				dfs(i, a, path, 0, m, startPos[i], startDir[i], used, b);
 			}
-			ac = bc = 0;
+			ac = 0;
 			for (int p : notN) {
-				if (b[p] > 0) {
-					++bc;
-					if (a[p] > 0) ++ac;
-				}
+				if (a[p] > 0) ++ac;
 			}
 		}
 
@@ -167,7 +160,7 @@ public class MazeFixing2 {
 				}
 			}
 			// value
-			return (bc << 4) * (F - f) + ac * f;
+			return (bc << 3) * (F - f) + ac * f;
 		}
 
 		void dfs(int s, int a[], int path[], int pi, Cell m[], int p, int d, boolean used[], int b[]) {
