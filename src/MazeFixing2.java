@@ -66,7 +66,7 @@ public class MazeFixing2 {
 		}
 		now.calc();
 		HashMap<Integer, Cell> next = new HashMap<>(), map = new HashMap<>();
-		while (true) {
+		for (int turn = 0;; ++turn) {
 			f = pi = 0;
 			for (int j : notN) {
 				if (now.m[j] != init[j]) dpos[f++] = j;
@@ -87,15 +87,14 @@ public class MazeFixing2 {
 					next.putAll(map);
 				}
 			}
-			for (Entry<Integer, Cell> entry : next.entrySet()) {
-				now.m[entry.getKey()] = entry.getValue();
-			}
-			now.calc();
-			if (score < now.ac) {
-				score = now.ac;
+			value = now.update(next);
+			if (score < value) {
+				score = value;
 				System.arraycopy(now.m, 0, best, 0, WH);
 			}
-			if (System.currentTimeMillis() > endTime) {
+			long time = System.currentTimeMillis();
+			if (time > endTime) {
+				// System.err.println(turn);
 				return toAnswer(best);
 			}
 		}
@@ -149,8 +148,8 @@ public class MazeFixing2 {
 			}
 			for (int i = 0; i < bi; ++i) {
 				int x = buf[i];
-				dfs(-1, delA, path, 0, m, startPos[x], startDir[x], used, delB);
-				dfs(-1, addA, path, 0, tmp, startPos[x], startDir[x], used, addB);
+				dfs(delA, path, 0, m, startPos[x], startDir[x], used, delB);
+				dfs(addA, path, 0, tmp, startPos[x], startDir[x], used, addB);
 			}
 			int ac = 0, bc = 0;
 			for (int p : notN) {
@@ -161,6 +160,40 @@ public class MazeFixing2 {
 			}
 			// value
 			return (bc << 3) * (F - f) + ac * f;
+		}
+
+		int update(HashMap<Integer, Cell> map) {
+			boolean ud[] = new boolean[startPos.length];
+			int buf[] = new int[0xff], bi = 0;
+			for (Entry<Integer, Cell> entry : map.entrySet()) {
+				int p = entry.getKey();
+				Cell c = entry.getValue();
+				if (m[p] != c) {
+					for (int i = 0, size = si[p]; i < size; ++i) {
+						int x = start[p][i];
+						if (!ud[x]) {
+							ud[x] = true;
+							buf[bi++] = x;
+						}
+					}
+				}
+			}
+			for (int i = 0; i < bi; ++i) {
+				int x = buf[i];
+				delete(x, a, path, 0, m, startPos[x], startDir[x], used, b);
+			}
+			for (Entry<Integer, Cell> entry : map.entrySet()) {
+				m[entry.getKey()] = entry.getValue();
+			}
+			for (int i = 0; i < bi; ++i) {
+				int x = buf[i];
+				dfs(x, a, path, 0, m, startPos[x], startDir[x], used, b);
+			}
+			ac = 0;
+			for (int p : notN) {
+				if (a[p] > 0) ++ac;
+			}
+			return ac;
 		}
 
 		void dfs(int s, int a[], int path[], int pi, Cell m[], int p, int d, boolean used[], int b[]) {
@@ -179,7 +212,7 @@ public class MazeFixing2 {
 				dfs(s, a, path, pi, m, p + W, W, used, b);
 				dfs(s, a, path, pi, m, p - W, -W, used, b);
 			} else {
-				if (s != -1 && (si[p] == 0 || start[p][si[p] - 1] != s)) start[p][si[p]++] = s;
+				if (si[p] == 0 || start[p][si[p] - 1] != s) start[p][si[p]++] = s;
 				if (m[p] == Cell.R) {
 					if (d == 1) d = W;
 					else if (d == -1) d = -W;
@@ -194,6 +227,80 @@ public class MazeFixing2 {
 					d = -d;
 				}
 				dfs(s, a, path, pi, m, p + d, d, used, b);
+			}
+			used[p] = false;
+		}
+
+		void dfs(int a[], int path[], int pi, Cell m[], int p, int d, boolean used[], int b[]) {
+			if (used[p]) return;
+			if (m[p] == Cell.N) {
+				for (int i = 0; i < pi; ++i)
+					++a[path[i]];
+				return;
+			}
+			path[pi++] = p;
+			used[p] = true;
+			++b[p];
+			if (m[p] == Cell.E) {
+				dfs(a, path, pi, m, p + 1, 1, used, b);
+				dfs(a, path, pi, m, p - 1, -1, used, b);
+				dfs(a, path, pi, m, p + W, W, used, b);
+				dfs(a, path, pi, m, p - W, -W, used, b);
+			} else {
+				if (m[p] == Cell.R) {
+					if (d == 1) d = W;
+					else if (d == -1) d = -W;
+					else if (d == W) d = -1;
+					else if (d == -W) d = 1;
+				} else if (m[p] == Cell.L) {
+					if (d == 1) d = -W;
+					else if (d == -1) d = W;
+					else if (d == W) d = 1;
+					else if (d == -W) d = -1;
+				} else if (m[p] == Cell.U) {
+					d = -d;
+				}
+				dfs(a, path, pi, m, p + d, d, used, b);
+			}
+			used[p] = false;
+		}
+
+		void delete(int s, int a[], int path[], int pi, Cell m[], int p, int d, boolean used[], int b[]) {
+			if (used[p]) return;
+			if (m[p] == Cell.N) {
+				for (int i = 0; i < pi; ++i)
+					--a[path[i]];
+				return;
+			}
+			path[pi++] = p;
+			used[p] = true;
+			--b[p];
+			if (m[p] == Cell.E) {
+				delete(s, a, path, pi, m, p + 1, 1, used, b);
+				delete(s, a, path, pi, m, p - 1, -1, used, b);
+				delete(s, a, path, pi, m, p + W, W, used, b);
+				delete(s, a, path, pi, m, p - W, -W, used, b);
+			} else {
+				for (int i = 0; i < si[p]; ++i) {
+					if (start[p][i] == s) {
+						start[p][i] = start[p][--si[p]];
+						break;
+					}
+				}
+				if (m[p] == Cell.R) {
+					if (d == 1) d = W;
+					else if (d == -1) d = -W;
+					else if (d == W) d = -1;
+					else if (d == -W) d = 1;
+				} else if (m[p] == Cell.L) {
+					if (d == 1) d = -W;
+					else if (d == -1) d = W;
+					else if (d == W) d = 1;
+					else if (d == -W) d = -1;
+				} else if (m[p] == Cell.U) {
+					d = -d;
+				}
+				delete(s, a, path, pi, m, p + d, d, used, b);
 			}
 			used[p] = false;
 		}
