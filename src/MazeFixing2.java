@@ -21,7 +21,7 @@ public class MazeFixing2 {
 		dir = new int[] { 1, -1, W, -W };
 		Cell m[] = new Cell[WH];
 		for (int i = 0; i < H; ++i) {
-			for (int j = 0; j < W; ++j) {
+			for (int j = 0; j + 1 < maze[i].length(); ++j) {
 				m[getPos(i, j)] = Cell.get(maze[i].charAt(j));
 			}
 		}
@@ -50,18 +50,12 @@ public class MazeFixing2 {
 		State now = new State(m);
 		int score = 0;
 		Cell best[] = Arrays.copyOf(init, WH);
-		int pos[] = new int[notN.length], pi = 0;
-		int dpos[] = new int[notN.length], f;
-		{
-			for (int j : notN) {
-				if (now.m[j] == Cell.U) {
-					pos[pi++] = j;
-				}
-			}
-			for (int i = 0; i < F && pi > 0; ++i) {
-				int index = rnd.next(pi), p = pos[index];
-				now.m[p] = Cell.S;
-				pos[index] = pos[--pi];
+		int pos[] = new int[notN.length << 1], pi = 0;
+		int dpos[] = new int[notN.length], f = 0;
+		for (int j : notN) {
+			if (now.m[j] == Cell.U && f < F) {
+				now.m[j] = Cell.S;
+				++f;
 			}
 		}
 		now.calc();
@@ -69,11 +63,17 @@ public class MazeFixing2 {
 		for (int turn = 0;; ++turn) {
 			f = pi = 0;
 			for (int j : notN) {
-				if (now.m[j] != init[j]) dpos[f++] = j;
-				if (now.m[j] != Cell.E && now.b[j] > 0) pos[pi++] = j;
+				if (now.m[j] != init[j]) {
+					dpos[f++] = j;
+					// if (init[j] != Cell.U) dpos[f++] = j;
+				}
+				if (now.m[j] != Cell.E && now.b[j] > 0) {
+					pos[pi++] = j;
+					if (now.m[j] == Cell.U) pos[pi++] = j;
+				}
 			}
 			int value = 0;
-			for (int i = 0; i < 0x3f; ++i) {
+			for (int i = 0; i < 80; ++i) {
 				map.clear();
 				if (rnd.next(F) < f) {
 					int a = dpos[rnd.next(f)];
@@ -92,9 +92,8 @@ public class MazeFixing2 {
 				score = value;
 				System.arraycopy(now.m, 0, best, 0, WH);
 			}
-			long time = System.currentTimeMillis();
-			if (time > endTime) {
-				// System.err.println(turn);
+			if (System.currentTimeMillis() > endTime) {
+				System.err.println("turn : " + turn);
 				return toAnswer(best);
 			}
 		}
@@ -104,7 +103,7 @@ public class MazeFixing2 {
 		int ac;
 		Cell m[] = new Cell[WH];
 		int a[] = new int[WH], b[] = new int[WH], start[][] = new int[WH][64];
-		int si[] = new int[WH], path[] = new int[WH];
+		int si[] = new int[WH];
 		boolean used[] = new boolean[WH];
 
 		State(Cell m[]) {
@@ -116,7 +115,7 @@ public class MazeFixing2 {
 			Arrays.fill(b, 0);
 			Arrays.fill(si, 0);
 			for (int i = 0; i < startPos.length; ++i) {
-				dfs(i, a, path, 0, m, startPos[i], startDir[i], used, b);
+				dfs(i, a, m, startPos[i], startDir[i], b);
 			}
 			ac = 0;
 			for (int p : notN) {
@@ -148,8 +147,8 @@ public class MazeFixing2 {
 			}
 			for (int i = 0; i < bi; ++i) {
 				int x = buf[i];
-				dfs(delA, path, 0, m, startPos[x], startDir[x], used, delB);
-				dfs(addA, path, 0, tmp, startPos[x], startDir[x], used, addB);
+				dfs(delA, m, startPos[x], startDir[x], delB);
+				dfs(addA, tmp, startPos[x], startDir[x], addB);
 			}
 			int ac = 0, bc = 0;
 			for (int p : notN) {
@@ -159,7 +158,7 @@ public class MazeFixing2 {
 				}
 			}
 			// value
-			return (bc << 3) * (F - f) + ac * f;
+			return (bc << 5) * (F - f) + ac * f;
 		}
 
 		int update(HashMap<Integer, Cell> map) {
@@ -180,14 +179,14 @@ public class MazeFixing2 {
 			}
 			for (int i = 0; i < bi; ++i) {
 				int x = buf[i];
-				delete(x, a, path, 0, m, startPos[x], startDir[x], used, b);
+				delete(x, a, m, startPos[x], startDir[x], b);
 			}
 			for (Entry<Integer, Cell> entry : map.entrySet()) {
 				m[entry.getKey()] = entry.getValue();
 			}
 			for (int i = 0; i < bi; ++i) {
 				int x = buf[i];
-				dfs(x, a, path, 0, m, startPos[x], startDir[x], used, b);
+				dfs(x, a, m, startPos[x], startDir[x], b);
 			}
 			ac = 0;
 			for (int p : notN) {
@@ -196,21 +195,17 @@ public class MazeFixing2 {
 			return ac;
 		}
 
-		void dfs(int s, int a[], int path[], int pi, Cell m[], int p, int d, boolean used[], int b[]) {
-			if (used[p]) return;
-			if (m[p] == Cell.N) {
-				for (int i = 0; i < pi; ++i)
-					++a[path[i]];
-				return;
-			}
-			path[pi++] = p;
+		boolean dfs(int s, int a[], Cell m[], int p, int d, int b[]) {
+			if (used[p]) return false;
+			if (m[p] == Cell.N) return true;
+			boolean res;
 			used[p] = true;
 			++b[p];
 			if (m[p] == Cell.E) {
-				dfs(s, a, path, pi, m, p + 1, 1, used, b);
-				dfs(s, a, path, pi, m, p - 1, -1, used, b);
-				dfs(s, a, path, pi, m, p + W, W, used, b);
-				dfs(s, a, path, pi, m, p - W, -W, used, b);
+				res = dfs(s, a, m, p + 1, 1, b);
+				res |= dfs(s, a, m, p - 1, -1, b);
+				res |= dfs(s, a, m, p + W, W, b);
+				res |= dfs(s, a, m, p - W, -W, b);
 			} else {
 				if (si[p] == 0 || start[p][si[p] - 1] != s) start[p][si[p]++] = s;
 				if (m[p] == Cell.R) {
@@ -226,26 +221,24 @@ public class MazeFixing2 {
 				} else if (m[p] == Cell.U) {
 					d = -d;
 				}
-				dfs(s, a, path, pi, m, p + d, d, used, b);
+				res = dfs(s, a, m, p + d, d, b);
 			}
 			used[p] = false;
+			if (res) ++a[p];
+			return res;
 		}
 
-		void dfs(int a[], int path[], int pi, Cell m[], int p, int d, boolean used[], int b[]) {
-			if (used[p]) return;
-			if (m[p] == Cell.N) {
-				for (int i = 0; i < pi; ++i)
-					++a[path[i]];
-				return;
-			}
-			path[pi++] = p;
+		boolean dfs(int a[], Cell m[], int p, int d, int b[]) {
+			if (used[p]) return false;
+			if (m[p] == Cell.N) return true;
+			boolean res;
 			used[p] = true;
 			++b[p];
 			if (m[p] == Cell.E) {
-				dfs(a, path, pi, m, p + 1, 1, used, b);
-				dfs(a, path, pi, m, p - 1, -1, used, b);
-				dfs(a, path, pi, m, p + W, W, used, b);
-				dfs(a, path, pi, m, p - W, -W, used, b);
+				res = dfs(a, m, p + 1, 1, b);
+				res |= dfs(a, m, p - 1, -1, b);
+				res |= dfs(a, m, p + W, W, b);
+				res |= dfs(a, m, p - W, -W, b);
 			} else {
 				if (m[p] == Cell.R) {
 					if (d == 1) d = W;
@@ -260,26 +253,24 @@ public class MazeFixing2 {
 				} else if (m[p] == Cell.U) {
 					d = -d;
 				}
-				dfs(a, path, pi, m, p + d, d, used, b);
+				res = dfs(a, m, p + d, d, b);
 			}
 			used[p] = false;
+			if (res) ++a[p];
+			return res;
 		}
 
-		void delete(int s, int a[], int path[], int pi, Cell m[], int p, int d, boolean used[], int b[]) {
-			if (used[p]) return;
-			if (m[p] == Cell.N) {
-				for (int i = 0; i < pi; ++i)
-					--a[path[i]];
-				return;
-			}
-			path[pi++] = p;
+		boolean delete(int s, int a[], Cell m[], int p, int d, int b[]) {
+			if (used[p]) return false;
+			if (m[p] == Cell.N) return true;
+			boolean res;
 			used[p] = true;
 			--b[p];
 			if (m[p] == Cell.E) {
-				delete(s, a, path, pi, m, p + 1, 1, used, b);
-				delete(s, a, path, pi, m, p - 1, -1, used, b);
-				delete(s, a, path, pi, m, p + W, W, used, b);
-				delete(s, a, path, pi, m, p - W, -W, used, b);
+				res = delete(s, a, m, p + 1, 1, b);
+				res |= delete(s, a, m, p - 1, -1, b);
+				res |= delete(s, a, m, p + W, W, b);
+				res |= delete(s, a, m, p - W, -W, b);
 			} else {
 				for (int i = 0; i < si[p]; ++i) {
 					if (start[p][i] == s) {
@@ -300,18 +291,34 @@ public class MazeFixing2 {
 				} else if (m[p] == Cell.U) {
 					d = -d;
 				}
-				delete(s, a, path, pi, m, p + d, d, used, b);
+				res = delete(s, a, m, p + d, d, b);
 			}
 			used[p] = false;
+			if (res) --a[p];
+			return res;
 		}
 	}
 
 	private String[] toAnswer(Cell m[]) {
 		ArrayList<String> res = new ArrayList<>();
+		int buf[][] = new int[Cell.values().length][Cell.values().length], c = 0;
 		for (int i : notN) {
 			if (m[i] != init[i]) {
 				res.add(getRow(i) + " " + getCol(i) + " " + m[i]);
+				++c;
+				++buf[init[i].ordinal()][m[i].ordinal()];
 			}
+		}
+		if (false) {
+			StringBuilder s = new StringBuilder();
+			s.append("sum : " + c + "\n");
+			for (Cell a : Cell.values()) {
+				for (Cell b : Cell.values()) {
+					if (a != Cell.N && b != Cell.N && a != Cell.E && b != Cell.U && b != Cell.E && a != b) s.append(a.name() + " -> "
+							+ b.name() + " : " + buf[a.ordinal()][b.ordinal()] + "\n");
+				}
+			}
+			System.err.print(s.toString());
 		}
 		return res.toArray(new String[0]);
 	}
