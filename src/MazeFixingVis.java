@@ -165,7 +165,7 @@ public class MazeFixingVis {
 	}
 
 	// -----------------------------------------
-	double getScore() {
+	double getScore(long seed) {
 		// count the % of cells visited by good paths in the maze. path must
 		// 1) start in any * (. cell adjacent to a non-. cell)
 		// 2) end in any * cell
@@ -184,7 +184,7 @@ public class MazeFixingVis {
 		for (int r = 0; r < H; ++r)
 			for (int c = 0; c < W; ++c)
 				if (!outside(r, c) && visitedOverall[r][c]) nvis++;
-		System.out.println("Score = " + nvis + " / " + N + "    " + ((double) nvis / N));
+		System.out.println("seed = " + seed + "   Score = " + nvis + " / " + N + "    " + ((double) nvis / N));
 		return (double) nvis / N;
 	}
 
@@ -243,7 +243,7 @@ public class MazeFixingVis {
 			}
 
 			// score the result - the *added* score
-			double fixedScore = getScore();
+			double fixedScore = getScore(seed);
 
 			if (vis) {
 				jf.setSize((W + 2) * SZ + 30, (H + 2) * SZ + 40);
@@ -441,9 +441,9 @@ public class MazeFixingVis {
 			if (args[i].equals("-size")) SZ = Integer.parseInt(args[++i]);
 		}
 		if (false) {
-			vis = true;
-			final long init = 1;
-			final long last = 10;
+			vis = false;
+			final long init = 56;
+			final long last = 56;
 			double sum = 0;
 			for (long seed = init; seed <= last; ++seed) {
 				sum += new MazeFixingVis().runTest(seed);
@@ -463,7 +463,7 @@ public class MazeFixingVis {
 		vis = false;
 		debug = false;
 		final ParameterClass sum = new ParameterClass();
-		ExecutorService es = Executors.newFixedThreadPool(6);
+		ExecutorService es = Executors.newFixedThreadPool(2);
 
 		for (int seed = 1, size = seed + 1000; seed < size; seed++) {
 			final int Seed = seed;

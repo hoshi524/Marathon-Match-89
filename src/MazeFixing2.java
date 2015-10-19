@@ -100,14 +100,14 @@ public class MazeFixing2 {
 	}
 
 	private final class State {
-		int ac;
 		Cell m[] = new Cell[WH];
-		int a[] = new int[WH], b[] = new int[WH], start[][] = new int[WH][64];
-		int si[] = new int[WH];
-		boolean used[] = new boolean[WH];
+		int a[] = new int[WH], b[] = new int[WH];
+		int start[][] = new int[WH][64], si[] = new int[WH];
+		boolean use[] = new boolean[WH];
 
 		State(Cell m[]) {
 			System.arraycopy(m, 0, this.m, 0, WH);
+			Arrays.fill(use, true);
 		}
 
 		void calc() {
@@ -116,10 +116,6 @@ public class MazeFixing2 {
 			Arrays.fill(si, 0);
 			for (int i = 0; i < startPos.length; ++i) {
 				dfs(i, a, m, startPos[i], startDir[i], b);
-			}
-			ac = 0;
-			for (int p : notN) {
-				if (a[p] > 0) ++ac;
 			}
 		}
 
@@ -186,22 +182,22 @@ public class MazeFixing2 {
 				int x = buf[i];
 				dfs(x, a, m, startPos[x], startDir[x], b);
 			}
-			ac = 0;
+			int score = 0;
 			for (int p : notN) {
-				if (a[p] > 0) ++ac;
+				if (a[p] > 0) ++score;
 			}
-			return ac;
+			return score;
 		}
 
 		boolean dfs(int s, int a[], Cell m[], int p, int d, int b[]) {
 			if (m[p] == Cell.N) return true;
 			boolean res = false;
-			used[p] = true;
+			use[p] = false;
 			if (m[p] == Cell.E) {
-				if (!used[p + 1]) res = dfs(s, a, m, p + 1, 1, b);
-				if (!used[p - 1]) res |= dfs(s, a, m, p - 1, -1, b);
-				if (!used[p + W]) res |= dfs(s, a, m, p + W, W, b);
-				if (!used[p - W]) res |= dfs(s, a, m, p - W, -W, b);
+				if (use[p + 1]) res = dfs(s, a, m, p + 1, 1, b);
+				if (use[p - 1]) res |= dfs(s, a, m, p - 1, -1, b);
+				if (use[p + W]) res |= dfs(s, a, m, p + W, W, b);
+				if (use[p - W]) res |= dfs(s, a, m, p - W, -W, b);
 			} else {
 				if (si[p] == 0 || start[p][si[p] - 1] != s) start[p][si[p]++] = s;
 				if (m[p] == Cell.R) {
@@ -217,9 +213,9 @@ public class MazeFixing2 {
 				} else if (m[p] == Cell.U) {
 					d = -d;
 				}
-				if (!used[p + d]) res = dfs(s, a, m, p + d, d, b);
+				if (use[p + d]) res = dfs(s, a, m, p + d, d, b);
 			}
-			used[p] = false;
+			use[p] = true;
 			if (res) ++a[p];
 			else++b[p];
 			return res;
@@ -228,12 +224,12 @@ public class MazeFixing2 {
 		boolean dfs(int a[], Cell m[], int p, int d, int b[]) {
 			if (m[p] == Cell.N) return true;
 			boolean res = false;
-			used[p] = true;
+			use[p] = false;
 			if (m[p] == Cell.E) {
-				if (!used[p + 1]) res = dfs(a, m, p + 1, 1, b);
-				if (!used[p - 1]) res |= dfs(a, m, p - 1, -1, b);
-				if (!used[p + W]) res |= dfs(a, m, p + W, W, b);
-				if (!used[p - W]) res |= dfs(a, m, p - W, -W, b);
+				if (use[p + 1]) res = dfs(a, m, p + 1, 1, b);
+				if (use[p - 1]) res |= dfs(a, m, p - 1, -1, b);
+				if (use[p + W]) res |= dfs(a, m, p + W, W, b);
+				if (use[p - W]) res |= dfs(a, m, p - W, -W, b);
 			} else {
 				if (m[p] == Cell.R) {
 					if (d == 1) d = W;
@@ -248,9 +244,9 @@ public class MazeFixing2 {
 				} else if (m[p] == Cell.U) {
 					d = -d;
 				}
-				if (!used[p + d]) res = dfs(a, m, p + d, d, b);
+				if (use[p + d]) res = dfs(a, m, p + d, d, b);
 			}
-			used[p] = false;
+			use[p] = true;
 			if (res) ++a[p];
 			else++b[p];
 			return res;
@@ -259,12 +255,12 @@ public class MazeFixing2 {
 		boolean delete(int s, int a[], Cell m[], int p, int d, int b[]) {
 			if (m[p] == Cell.N) return true;
 			boolean res = false;
-			used[p] = true;
+			use[p] = false;
 			if (m[p] == Cell.E) {
-				if (!used[p + 1]) res = delete(s, a, m, p + 1, 1, b);
-				if (!used[p - 1]) res |= delete(s, a, m, p - 1, -1, b);
-				if (!used[p + W]) res |= delete(s, a, m, p + W, W, b);
-				if (!used[p - W]) res |= delete(s, a, m, p - W, -W, b);
+				if (use[p + 1]) res = delete(s, a, m, p + 1, 1, b);
+				if (use[p - 1]) res |= delete(s, a, m, p - 1, -1, b);
+				if (use[p + W]) res |= delete(s, a, m, p + W, W, b);
+				if (use[p - W]) res |= delete(s, a, m, p - W, -W, b);
 			} else {
 				for (int i = 0; i < si[p]; ++i) {
 					if (start[p][i] == s) {
@@ -285,9 +281,9 @@ public class MazeFixing2 {
 				} else if (m[p] == Cell.U) {
 					d = -d;
 				}
-				if (!used[p + d]) res = delete(s, a, m, p + d, d, b);
+				if (use[p + d]) res = delete(s, a, m, p + d, d, b);
 			}
-			used[p] = false;
+			use[p] = true;
 			if (res) --a[p];
 			else--b[p];
 			return res;
@@ -309,8 +305,8 @@ public class MazeFixing2 {
 			s.append("sum : " + c + "\n");
 			for (Cell a : Cell.values()) {
 				for (Cell b : Cell.values()) {
-					if (a != Cell.N && b != Cell.N && a != Cell.E && b != Cell.U && b != Cell.E && a != b) s.append(a.name() + " -> "
-							+ b.name() + " : " + buf[a.ordinal()][b.ordinal()] + "\n");
+					if (a != Cell.N && b != Cell.N && a != Cell.E && b != Cell.U && b != Cell.E && a != b)
+						s.append(a.name() + " -> " + b.name() + " : " + buf[a.ordinal()][b.ordinal()] + "\n");
 				}
 			}
 			System.err.print(s.toString());
