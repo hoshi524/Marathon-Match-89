@@ -95,7 +95,7 @@ public class MazeFixing2 {
 	private final class State {
 		private int m[], a[] = new int[WH], b[] = new int[WH];
 		private int sa[][] = new int[S.length][WH], sb[][] = new int[S.length][WH];
-		private int start[][] = new int[WH][64];
+		private int start[][] = new int[WH][50];
 		private boolean use[] = new boolean[WH];
 
 		State(int m[]) {
@@ -124,7 +124,7 @@ public class MazeFixing2 {
 			int tmp[] = Arrays.copyOf(m, WH);
 			int tmpA[] = new int[WH];
 			int tmpB[] = new int[WH];
-			int buf[] = new int[50], bi = 0;
+			int buf[] = new int[64], bi = 0;
 			for (int i = 1, isize = change[0]; i < isize; ++i) {
 				int p = change[(i << 1)];
 				int c = change[(i << 1) + 1];
@@ -158,7 +158,7 @@ public class MazeFixing2 {
 
 		int update(int change[]) {
 			boolean ud[] = new boolean[S.length];
-			int buf[] = new int[50], bi = 0;
+			int buf[] = new int[64], bi = 0;
 			for (int i = 1, isize = change[0]; i < isize; ++i) {
 				int p = change[(i << 1)];
 				int c = change[(i << 1) + 1];
