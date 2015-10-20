@@ -54,7 +54,6 @@ public class MazeFixing2 {
 				if (now.m[p] == Cell.E || now.m[p] == Cell.N) continue;
 				if (now.m[p] != init[p]) {
 					dpos[f++] = p;
-					// if (init[j] != Cell.U) dpos[f++] = j;
 				}
 				if (now.b[p] + now.a[p] > 0) {
 					pos[pi++] = p;
@@ -63,17 +62,15 @@ public class MazeFixing2 {
 			}
 			int value = 0;
 			for (int i = 0; i < 80; ++i) {
-				x[0] = 1;
+				x[0] = 0;
 				int dpi = rnd.next(F);
 				if (dpi < f) {
 					int a = dpos[dpi];
-					x[(x[0] << 1)] = a;
+					x[(++x[0] << 1)] = a;
 					x[(x[0] << 1) + 1] = init[a];
-					++x[0];
 				}
-				x[(x[0] << 1)] = pos[rnd.next(pi)];
+				x[(++x[0] << 1)] = pos[rnd.next(pi)];
 				x[(x[0] << 1) + 1] = rnd.next(3);
-				++x[0];
 				int tmp = now.value(x, f);
 				if (value < tmp) {
 					value = tmp;
@@ -86,7 +83,7 @@ public class MazeFixing2 {
 				System.arraycopy(now.m, 0, best, 0, WH);
 			}
 			if (System.currentTimeMillis() > endTime) {
-				System.err.println("turn : " + turn);
+				// System.err.println("turn : " + turn);
 				return toAnswer(best);
 			}
 		}
@@ -107,7 +104,7 @@ public class MazeFixing2 {
 			Arrays.fill(a, 0);
 			Arrays.fill(b, 0);
 			for (int p = 0; p < WH; ++p)
-				start[p][0] = 1;
+				start[p][0] = 0;
 			for (int i = 0; i < S.length; ++i) {
 				Arrays.fill(sa[i], 0);
 				Arrays.fill(sb[i], 0);
@@ -124,22 +121,21 @@ public class MazeFixing2 {
 			int tmp[] = Arrays.copyOf(m, WH);
 			int tmpA[] = new int[WH];
 			int tmpB[] = new int[WH];
-			int buf[] = new int[64], bi = 0;
-			for (int i = 1, isize = change[0]; i < isize; ++i) {
-				int p = change[(i << 1)];
-				int c = change[(i << 1) + 1];
+			int buf[] = new int[64];
+			for (int i = 1; i <= change[0]; ++i) {
+				int p = change[(i << 1)], c = change[(i << 1) + 1];
 				if (tmp[p] != c) {
-					for (int j = 1, jsize = start[p][0]; j < jsize; ++j) {
+					for (int j = 1; j <= start[p][0]; ++j) {
 						int x = start[p][j];
 						if (!ud[x]) {
 							ud[x] = true;
-							buf[bi++] = x;
+							buf[++buf[0]] = x;
 						}
 					}
 					tmp[p] = c;
 				}
 			}
-			for (int i = 0; i < bi; ++i) {
+			for (int i = 1; i <= buf[0]; ++i) {
 				int x = buf[i];
 				for (int p = 10; p < WH; ++p) {
 					tmpA[p] -= sa[x][p];
@@ -158,31 +154,31 @@ public class MazeFixing2 {
 
 		int update(int change[]) {
 			boolean ud[] = new boolean[S.length];
-			int buf[] = new int[64], bi = 0;
-			for (int i = 1, isize = change[0]; i < isize; ++i) {
-				int p = change[(i << 1)];
-				int c = change[(i << 1) + 1];
+			int buf[] = new int[64];
+			for (int i = 1; i <= change[0]; ++i) {
+				int p = change[(i << 1)], c = change[(i << 1) + 1];
 				if (m[p] != c) {
-					for (int j = 1, jsize = start[p][0]; j < jsize; ++j) {
+					for (int j = 1; j <= start[p][0]; ++j) {
 						int x = start[p][j];
 						if (!ud[x]) {
 							ud[x] = true;
-							buf[bi++] = x;
+							buf[++buf[0]] = x;
 						}
 					}
 					m[p] = c;
 				}
 			}
-			for (int i = 0; i < bi; ++i) {
+			for (int i = 1; i <= buf[0]; ++i) {
 				int x = buf[i];
 				for (int p = 10; p < WH; ++p) {
 					if (sa[x][p] + sb[x][p] > 0) {
 						a[p] -= sa[x][p];
 						b[p] -= sb[x][p];
-						sa[x][p] = sb[x][p] = 0;
-						for (int k = 1; k < start[p][0]; ++k) {
+						sa[x][p] = 0;
+						sb[x][p] = 0;
+						for (int k = 1; k <= start[p][0]; ++k) {
 							if (start[p][k] == x) {
-								start[p][k] = start[p][--start[p][0]];
+								start[p][k] = start[p][start[p][0]--];
 								break;
 							}
 						}
@@ -211,7 +207,7 @@ public class MazeFixing2 {
 				if (use[p + W]) res |= dfs(s, a, m, p + W, W, b);
 				if (use[p - W]) res |= dfs(s, a, m, p - W, -W, b);
 			} else {
-				if (start[p][0] == 1 || start[p][start[p][0] - 1] != s) start[p][start[p][0]++] = s;
+				if (start[p][0] == 0 || start[p][start[p][0]] != s) start[p][++start[p][0]] = s;
 				int x = dir(m[p], d);
 				if (use[p + x]) res = dfs(s, a, m, p + x, x, b);
 			}
@@ -268,7 +264,7 @@ public class MazeFixing2 {
 		return res.toArray(new String[0]);
 	}
 
-	private static class Cell {
+	private static final class Cell {
 		static final int R = 0, L = 1, S = 2, U = 3, E = 4, N = 5;
 
 		static final int get(char c) {
@@ -328,6 +324,6 @@ public class MazeFixing2 {
 	}
 
 	private void debug(Object... o) {
-		System.out.println(Arrays.deepToString(o));
+		System.err.println(Arrays.deepToString(o));
 	}
 }

@@ -189,12 +189,12 @@ public class MazeFixingVis {
 	}
 
 	// -----------------------------------------
-	public double runTest(long seed) {
+	public double runTest(Wrapper solver, long seed) {
 		try {
 			generate(seed);
 
 			// call the solution
-			String[] ret = new MazeFixing2().improve(maze, F);
+			String[] ret = solver.improve(maze, F);
 
 			// check the params of the return
 			if (ret.length > F) {
@@ -441,16 +441,22 @@ public class MazeFixingVis {
 			if (args[i].equals("-size")) SZ = Integer.parseInt(args[++i]);
 		}
 		if (false) {
+			class solve implements Wrapper {
+				@Override
+				public String[] improve(String[] maze, int F) {
+					return new MazeFixing2().improve(maze, F);
+				}
+			}
 			vis = false;
 			final long init = 56;
 			final long last = 56;
 			double sum = 0;
 			for (long seed = init; seed <= last; ++seed) {
-				sum += new MazeFixingVis().runTest(seed);
+				sum += new MazeFixingVis().runTest(new solve(), seed);
 			}
 			System.out.println(init + " ~ " + last + " : " + sum);
 		} else {
-			new MazeFixingVis().test();
+			new MazeFixingVis().compare();
 		}
 	}
 
@@ -469,14 +475,82 @@ public class MazeFixingVis {
 			final int Seed = seed;
 			es.submit(() -> {
 				try {
+					class solve implements Wrapper {
+						@Override
+						public String[] improve(String[] maze, int F) {
+							return new MazeFixing2().improve(maze, F);
+						}
+					}
 					long time = System.currentTimeMillis();
-					double score = new MazeFixingVis().runTest(Seed);
+					double score = new MazeFixingVis().runTest(new solve(), Seed);
 					time = System.currentTimeMillis() - time;
 					sum.d += score;
 					++sum.c;
 					if (time > MAX_TIME) sum.timeover++;
 					System.out.println(String.format("%3d   %.3f   %4d   %.1f   %.3f   %d", Seed, score, time, sum.d, sum.d / sum.c,
 							sum.timeover));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			});
+		}
+		es.shutdown();
+	}
+
+	interface Wrapper {
+		public String[] improve(String[] maze, int F);
+	}
+
+	void compare() {
+		class ParameterClass {
+			volatile double d;
+			volatile int c;
+			volatile int timeover;
+		}
+
+		vis = false;
+		debug = false;
+		final ParameterClass sum1 = new ParameterClass();
+		final ParameterClass sum2 = new ParameterClass();
+		ExecutorService es = Executors.newFixedThreadPool(2);
+
+		for (int seed = 1, size = seed + 1000; seed < size; seed++) {
+			final int Seed = seed;
+			es.submit(() -> {
+				try {
+					MazeFixingVis vis = new MazeFixingVis();
+					vis.generate(Seed);
+					int WH = vis.H * vis.W, F = vis.F;
+
+					class solve1 implements Wrapper {
+						@Override
+						public String[] improve(String[] maze, int F) {
+							return new MazeFixing2().improve(maze, F);
+						}
+					}
+					long time1 = System.currentTimeMillis();
+					double score1 = new MazeFixingVis().runTest(new solve1(), Seed);
+					time1 = System.currentTimeMillis() - time1;
+					sum1.d += score1;
+					++sum1.c;
+					if (time1 > MAX_TIME) sum1.timeover++;
+
+					class solve2 implements Wrapper {
+						@Override
+						public String[] improve(String[] maze, int F) {
+							return new MazeFixing2().improve(maze, F);
+						}
+					}
+					long time2 = System.currentTimeMillis();
+					double score2 = new MazeFixingVis().runTest(new solve2(), Seed);
+					time2 = System.currentTimeMillis() - time2;
+					sum2.d += score2;
+					++sum2.c;
+					if (time2 > MAX_TIME) sum2.timeover++;
+
+					System.err.println(String.format("Seed : %d   WH : %d   F : %d   %.1f : %.1f   %.3f : %.3f   %d : %d", Seed, WH, F,
+							sum1.d, sum2.d, score1, score2, time1, time2));
+
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
