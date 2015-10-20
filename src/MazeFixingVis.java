@@ -194,7 +194,7 @@ public class MazeFixingVis {
 			generate(seed);
 
 			// call the solution
-			String[] ret = new MazeFixing3().improve(maze, F);
+			String[] ret = new MazeFixing2().improve(maze, F);
 
 			// check the params of the return
 			if (ret.length > F) {
