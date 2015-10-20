@@ -95,7 +95,7 @@ public class MazeFixing2 {
 	private final class State {
 		private int m[], a[] = new int[WH], b[] = new int[WH];
 		private int sa[][] = new int[S.length][WH], sb[][] = new int[S.length][WH];
-		private int start[][] = new int[WH][50];
+		private int start[][] = new int[WH][64];
 		private boolean use[] = new boolean[WH];
 
 		State(int m[]) {
