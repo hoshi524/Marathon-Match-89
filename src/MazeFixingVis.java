@@ -194,7 +194,7 @@ public class MazeFixingVis {
 			generate(seed);
 
 			// call the solution
-			String[] ret = new MazeFixing2().improve(maze, F);
+			String[] ret = new MazeFixing3().improve(maze, F);
 
 			// check the params of the return
 			if (ret.length > F) {
@@ -463,7 +463,7 @@ public class MazeFixingVis {
 		vis = false;
 		debug = false;
 		final ParameterClass sum = new ParameterClass();
-		ExecutorService es = Executors.newFixedThreadPool(2);
+		ExecutorService es = Executors.newFixedThreadPool(4);
 
 		for (int seed = 1, size = seed + 1000; seed < size; seed++) {
 			final int Seed = seed;
