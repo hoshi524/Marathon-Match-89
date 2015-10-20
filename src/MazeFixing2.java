@@ -10,7 +10,7 @@ public class MazeFixing2 {
 	private static final Cell cell[] = new Cell[] { Cell.L, Cell.R, Cell.S };
 	private final long endTime = System.currentTimeMillis() + MAX_TIME;
 
-	private int W, H, WH, F, dir[], startPos[], startDir[], notN[];
+	private int W, H, WH, F, dir[], startPos[], startDir[];
 	private Cell init[];
 
 	public String[] improve(String[] maze, int F) {
@@ -44,17 +44,16 @@ public class MazeFixing2 {
 			}
 			startPos = toArray(spos);
 			startDir = toArray(sdir);
-			notN = toArray(cell);
 		}
 		XorShift rnd = new XorShift();
 		State now = new State(m);
 		int score = 0;
 		Cell best[] = Arrays.copyOf(init, WH);
-		int pos[] = new int[notN.length << 1], pi = 0;
-		int dpos[] = new int[notN.length], f = 0;
-		for (int j : notN) {
-			if (now.m[j] == Cell.U && f < F) {
-				now.m[j] = Cell.S;
+		int pos[] = new int[WH << 1], pi = 0;
+		int dpos[] = new int[WH], f = 0;
+		for (int p = 0; p < WH; ++p) {
+			if (now.m[p] == Cell.U && f < F) {
+				now.m[p] = Cell.S;
 				++f;
 			}
 		}
@@ -62,14 +61,15 @@ public class MazeFixing2 {
 		HashMap<Integer, Cell> next = new HashMap<>(), map = new HashMap<>();
 		for (int turn = 0;; ++turn) {
 			f = pi = 0;
-			for (int j : notN) {
-				if (now.m[j] != init[j]) {
-					dpos[f++] = j;
+			for (int p = 0; p < WH; ++p) {
+				if (now.m[p] == Cell.E || now.m[p] == Cell.N) continue;
+				if (now.m[p] != init[p]) {
+					dpos[f++] = p;
 					// if (init[j] != Cell.U) dpos[f++] = j;
 				}
-				if (now.m[j] != Cell.E && now.b[j] + now.a[j] > 0) {
-					pos[pi++] = j;
-					if (now.m[j] == Cell.U) pos[pi++] = j;
+				if (now.b[p] + now.a[p] > 0) {
+					pos[pi++] = p;
+					if (now.m[p] == Cell.U) pos[pi++] = p;
 				}
 			}
 			int value = 0;
@@ -147,7 +147,7 @@ public class MazeFixing2 {
 				dfs(addA, tmp, startPos[x], startDir[x], addB);
 			}
 			int ac = 0, bc = 0;
-			for (int p : notN) {
+			for (int p = 0; p < WH; ++p) {
 				if (a[p] + addA[p] > delA[p]) ++ac;
 				else if (b[p] + addB[p] > delB[p]) ++bc;
 			}
@@ -183,7 +183,7 @@ public class MazeFixing2 {
 				dfs(x, a, m, startPos[x], startDir[x], b);
 			}
 			int score = 0;
-			for (int p : notN) {
+			for (int p = 0; p < WH; ++p) {
 				if (a[p] > 0) ++score;
 			}
 			return score;
@@ -293,7 +293,7 @@ public class MazeFixing2 {
 	private String[] toAnswer(Cell m[]) {
 		ArrayList<String> res = new ArrayList<>();
 		int buf[][] = new int[Cell.values().length][Cell.values().length], c = 0;
-		for (int i : notN) {
+		for (int i = 0; i < WH; ++i) {
 			if (m[i] != init[i]) {
 				res.add(getRow(i) + " " + getCol(i) + " " + m[i]);
 				++c;
