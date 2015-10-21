@@ -2,7 +2,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class MazeFixing2 {
+public class MazeFixing3 {
 
 	private static final int MAX_TIME = 9500;
 	private final long endTime = System.currentTimeMillis() + MAX_TIME;
@@ -141,14 +141,14 @@ public class MazeFixing2 {
 			}
 			for (int i = 1; i <= buf[0]; ++i) {
 				int x = buf[i];
-				for (int p = 10; p < WH; ++p) {
+				for (int p = W; p < WH - W; ++p) {
 					tmpA[p] -= sa[x][p];
 					tmpB[p] -= sb[x][p];
 				}
 				dfs(tmpA, tmp, S[x][0], S[x][1], tmpB);
 			}
 			int ac = 0, bc = 0;
-			for (int p = 10; p < WH; ++p) {
+			for (int p = W; p < WH - W; ++p) {
 				if (a[p] + tmpA[p] > 0) ++ac;
 				else if (b[p] + tmpB[p] > 0) ++bc;
 			}

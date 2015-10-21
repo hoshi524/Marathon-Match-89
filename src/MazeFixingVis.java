@@ -88,7 +88,7 @@ public class MazeFixingVis {
 				}
 			}
 			F = r1.nextInt(N / 3 - N / 10) + N / 10;
-			addFatalError("W = " + W + ", H = " + H + ", cells in maze N = " + N + ", F = " + F);
+			// addFatalError("W = " + W + ", H = " + H + ", cells in maze N = " + N + ", F = " + F);
 
 			maze = new String[H];
 			for (i = 0; i < H; i++)
@@ -478,7 +478,7 @@ public class MazeFixingVis {
 					class solve implements Wrapper {
 						@Override
 						public String[] improve(String[] maze, int F) {
-							return new MazeFixing2().improve(maze, F);
+							return new MazeFixing3().improve(maze, F);
 						}
 					}
 					long time = System.currentTimeMillis();
@@ -538,7 +538,7 @@ public class MazeFixingVis {
 					class solve2 implements Wrapper {
 						@Override
 						public String[] improve(String[] maze, int F) {
-							return new MazeFixing2().improve(maze, F);
+							return new MazeFixing3().improve(maze, F);
 						}
 					}
 					long time2 = System.currentTimeMillis();
