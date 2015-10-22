@@ -16,20 +16,19 @@ public class MazeFixing2 {
 		this.F = F;
 		init = new int[WH];
 		for (int i = 0; i < H; ++i) {
-			for (int j = 0; j + 1 < maze[i].length() && getPos(i, j) < WH; ++j) {
+			for (int j = 0; j < W; ++j) {
 				int p = getPos(i, j);
 				init[p] = Cell.get(maze[i].charAt(j));
 			}
 		}
 		{
 			List<int[]> slist = new ArrayList<>();
-			int dir[] = new int[] { 1, -1, W, -W };
 			for (int i = 0; i < WH; ++i) {
 				if (init[i] != Cell.N) {
-					for (int d : dir) {
-						int n = i + d;
-						if (init[n] == Cell.N) slist.add(new int[] { i, -d });
-					}
+					if (init[i + 1] == Cell.N) slist.add(new int[] { i, -1 });
+					if (init[i - 1] == Cell.N) slist.add(new int[] { i, 1 });
+					if (init[i + W] == Cell.N) slist.add(new int[] { i, -W });
+					if (init[i - W] == Cell.N) slist.add(new int[] { i, W });
 				}
 			}
 			S = toArray(slist);

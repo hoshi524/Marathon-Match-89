@@ -5,31 +5,32 @@ import java.util.List;
 public class MazeFixing3 {
 
 	private static final int MAX_TIME = 9500;
+	private static final int Z = 16;
 	private final long endTime = System.currentTimeMillis() + MAX_TIME;
 
-	private int W, WH, F, S[][], init[];
+	private int W, WH, F, S[][];
+	private long init[];
 
 	public String[] improve(String[] maze, int F) {
 		int H = maze.length;
 		W = maze[0].length() - 1;
 		WH = W * H;
 		this.F = F;
-		init = new int[WH];
+		init = new long[(WH + Z - 1) / Z];
 		for (int i = 0; i < H; ++i) {
-			for (int j = 0; j + 1 < maze[i].length() && getPos(i, j) < WH; ++j) {
-				int p = getPos(i, j);
-				init[p] = Cell.get(maze[i].charAt(j));
+			for (int j = 0; j < W; ++j) {
+				int p = getPos(i, j), v = Cell.get(maze[i].charAt(j));
+				put(init, p, v);
 			}
 		}
 		{
 			List<int[]> slist = new ArrayList<>();
-			int dir[] = new int[] { 1, -1, W, -W };
 			for (int i = 0; i < WH; ++i) {
-				if (init[i] != Cell.N) {
-					for (int d : dir) {
-						int n = i + d;
-						if (init[n] == Cell.N) slist.add(new int[] { i, -d });
-					}
+				if (get(init, i) != Cell.N) {
+					if (get(init, i + 1) == Cell.N) slist.add(new int[] { i, -1 });
+					if (get(init, i - 1) == Cell.N) slist.add(new int[] { i, 1 });
+					if (get(init, i + W) == Cell.N) slist.add(new int[] { i, -W });
+					if (get(init, i - W) == Cell.N) slist.add(new int[] { i, W });
 				}
 			}
 			S = toArray(slist);
@@ -37,12 +38,12 @@ public class MazeFixing3 {
 		XorShift rnd = new XorShift();
 		State now = new State(init);
 		int score = 0;
-		int best[] = Arrays.copyOf(init, WH);
+		long best[] = Arrays.copyOf(init, init.length);
 		int pos[] = new int[WH << 1], pi = 0;
 		int dpos[] = new int[WH], f = 0;
 		for (int p = 10; p < WH; ++p) {
-			if (now.m[p] == Cell.U && f < F) {
-				now.m[p] = Cell.S;
+			if (get(now.m, p) == Cell.U && f < F) {
+				put(now.m, p, Cell.S);
 				++f;
 			}
 		}
@@ -51,13 +52,13 @@ public class MazeFixing3 {
 		while (true) {
 			f = pi = 0;
 			for (int p = 10; p < WH; ++p) {
-				if (now.m[p] == Cell.E || now.m[p] == Cell.N) continue;
-				if (now.m[p] != init[p]) {
+				if (get(now.m, p) == Cell.E || get(now.m, p) == Cell.N) continue;
+				if (get(now.m, p) != get(init, p)) {
 					dpos[f++] = p;
 				}
 				if (now.b[p] + now.a[p] > 0) {
 					pos[pi++] = p;
-					if (now.m[p] == Cell.U) pos[pi++] = p;
+					if (get(now.m, p) == Cell.U) pos[pi++] = p;
 				}
 			}
 			int value = 0;
@@ -67,7 +68,7 @@ public class MazeFixing3 {
 				if (dpi < f) {
 					int a = dpos[dpi];
 					x[(++x[0] << 1)] = a;
-					x[(x[0] << 1) + 1] = init[a];
+					x[(x[0] << 1) + 1] = get(init, a);
 				}
 				x[(++x[0] << 1)] = pos[rnd.next(pi)];
 				x[(x[0] << 1) + 1] = rnd.next(3);
@@ -80,7 +81,7 @@ public class MazeFixing3 {
 			value = now.update(next);
 			if (score < value) {
 				score = value;
-				System.arraycopy(now.m, 0, best, 0, WH);
+				System.arraycopy(now.m, 0, best, 0, best.length);
 			}
 			if (System.currentTimeMillis() > endTime) {
 				return toAnswer(best);
@@ -89,12 +90,13 @@ public class MazeFixing3 {
 	}
 
 	private final class State {
-		private int m[], a[] = new int[WH], b[] = new int[WH];
+		private long m[];
+		private int a[] = new int[WH], b[] = new int[WH];
 		private int sa[][] = new int[S.length][WH], sb[][] = new int[S.length][WH];
 		private int start[][] = new int[WH][50];
 
-		State(int m[]) {
-			this.m = Arrays.copyOf(m, WH);
+		State(long m[]) {
+			this.m = Arrays.copyOf(m, m.length);
 		}
 
 		void calc() {
@@ -114,21 +116,21 @@ public class MazeFixing3 {
 		}
 
 		private boolean ud[] = new boolean[S.length];
-		private int tmp[] = new int[WH];
+		private long tmp[] = new long[(WH + Z - 1) / Z];
 		private int tmpA[] = new int[WH];
 		private int tmpB[] = new int[WH];
 		private int buf[] = new int[64];
 
 		int value(int change[], int f) {
 			Arrays.fill(ud, false);
-			System.arraycopy(m, 0, tmp, 0, WH);
+			System.arraycopy(m, 0, tmp, 0, m.length);
 			Arrays.fill(tmpA, 0);
 			Arrays.fill(tmpB, 0);
 			buf[0] = 0;
 
 			for (int i = 1; i <= change[0]; ++i) {
 				int p = change[(i << 1)], c = change[(i << 1) + 1];
-				if (tmp[p] != c) {
+				if (get(tmp, p) != c) {
 					for (int j = 1; j <= start[p][0]; ++j) {
 						int x = start[p][j];
 						if (!ud[x]) {
@@ -136,19 +138,19 @@ public class MazeFixing3 {
 							buf[++buf[0]] = x;
 						}
 					}
-					tmp[p] = c;
+					put(tmp, p, c);
 				}
 			}
 			for (int i = 1; i <= buf[0]; ++i) {
 				int x = buf[i];
-				for (int p = W; p < WH - W; ++p) {
+				for (int p = 10; p < WH; ++p) {
 					tmpA[p] -= sa[x][p];
 					tmpB[p] -= sb[x][p];
 				}
 				dfs(tmpA, tmp, S[x][0], S[x][1], tmpB);
 			}
 			int ac = 0, bc = 0;
-			for (int p = W; p < WH - W; ++p) {
+			for (int p = 10; p < WH; ++p) {
 				if (a[p] + tmpA[p] > 0) ++ac;
 				else if (b[p] + tmpB[p] > 0) ++bc;
 			}
@@ -162,7 +164,7 @@ public class MazeFixing3 {
 
 			for (int i = 1; i <= change[0]; ++i) {
 				int p = change[(i << 1)], c = change[(i << 1) + 1];
-				if (m[p] != c) {
+				if (get(m, p) != c) {
 					for (int j = 1; j <= start[p][0]; ++j) {
 						int x = start[p][j];
 						if (!ud[x]) {
@@ -170,7 +172,7 @@ public class MazeFixing3 {
 							buf[++buf[0]] = x;
 						}
 					}
-					m[p] = c;
+					put(m, p, c);
 				}
 			}
 			for (int i = 1; i <= buf[0]; ++i) {
@@ -202,42 +204,42 @@ public class MazeFixing3 {
 			return score;
 		}
 
-		private boolean dfs(int s, int a[], int m[], int p, int d, int b[]) {
-			if (m[p] == Cell.N) return true;
+		private boolean dfs(int s, int a[], long m[], int p, int d, int b[]) {
+			int c = get(m, p);
+			if (c == Cell.N) return true;
 			boolean res = false;
-			int c = m[p];
-			m[p] = Cell.B;
+			put(m, p, Cell.B);
 			if (c == Cell.E) {
-				if (m[p + 1] != Cell.B) res = dfs(s, a, m, p + 1, 1, b);
-				if (m[p - 1] != Cell.B) res |= dfs(s, a, m, p - 1, -1, b);
-				if (m[p + W] != Cell.B) res |= dfs(s, a, m, p + W, W, b);
-				if (m[p - W] != Cell.B) res |= dfs(s, a, m, p - W, -W, b);
+				if (get(m, p + 1) != Cell.B) res = dfs(s, a, m, p + 1, 1, b);
+				if (get(m, p - 1) != Cell.B) res |= dfs(s, a, m, p - 1, -1, b);
+				if (get(m, p + W) != Cell.B) res |= dfs(s, a, m, p + W, W, b);
+				if (get(m, p - W) != Cell.B) res |= dfs(s, a, m, p - W, -W, b);
 			} else {
 				if (start[p][0] == 0 || start[p][start[p][0]] != s) start[p][++start[p][0]] = s;
 				int x = dir(c, d);
-				if (m[p + x] != Cell.B) res = dfs(s, a, m, p + x, x, b);
+				if (get(m, p + x) != Cell.B) res = dfs(s, a, m, p + x, x, b);
 			}
-			m[p] = c;
+			put(m, p, c);
 			if (res) ++a[p];
 			else++b[p];
 			return res;
 		}
 
-		private boolean dfs(int a[], int m[], int p, int d, int b[]) {
-			if (m[p] == Cell.N) return true;
+		private boolean dfs(int a[], long m[], int p, int d, int b[]) {
+			int c = get(m, p);
+			if (c == Cell.N) return true;
 			boolean res = false;
-			int c = m[p];
-			m[p] = Cell.B;
+			put(m, p, Cell.B);
 			if (c == Cell.E) {
-				if (m[p + 1] != Cell.B) res = dfs(a, m, p + 1, 1, b);
-				if (m[p - 1] != Cell.B) res |= dfs(a, m, p - 1, -1, b);
-				if (m[p + W] != Cell.B) res |= dfs(a, m, p + W, W, b);
-				if (m[p - W] != Cell.B) res |= dfs(a, m, p - W, -W, b);
+				if (get(m, p + 1) != Cell.B) res = dfs(a, m, p + 1, 1, b);
+				if (get(m, p - 1) != Cell.B) res |= dfs(a, m, p - 1, -1, b);
+				if (get(m, p + W) != Cell.B) res |= dfs(a, m, p + W, W, b);
+				if (get(m, p - W) != Cell.B) res |= dfs(a, m, p - W, -W, b);
 			} else {
 				int x = dir(c, d);
-				if (m[p + x] != Cell.B) res = dfs(a, m, p + x, x, b);
+				if (get(m, p + x) != Cell.B) res = dfs(a, m, p + x, x, b);
 			}
-			m[p] = c;
+			put(m, p, c);
 			if (res) ++a[p];
 			else++b[p];
 			return res;
@@ -261,11 +263,11 @@ public class MazeFixing3 {
 		}
 	}
 
-	private String[] toAnswer(int m[]) {
+	private String[] toAnswer(long m[]) {
 		ArrayList<String> res = new ArrayList<>();
 		for (int i = 0; i < WH; ++i) {
-			if (m[i] != init[i]) {
-				res.add(getRow(i) + " " + getCol(i) + " " + Cell.get(m[i]));
+			if (get(m, i) != get(init, i)) {
+				res.add(getRow(i) + " " + getCol(i) + " " + Cell.get(get(m, i)));
 			}
 		}
 		return res.toArray(new String[0]);
@@ -291,6 +293,15 @@ public class MazeFixing3 {
 			else if (c == E) return 'E';
 			return 'N';
 		}
+	}
+
+	private static final void put(long[] buf, int i, int v) {
+		int a = i >>> 4, b = ((i & (Z - 1)) * 3);
+		buf[a] = (buf[a] & ~(7L << b)) | ((long) v << b);
+	}
+
+	private static final int get(long[] buf, int i) {
+		return (int) ((buf[i >>> 4] >>> ((i & (Z - 1)) * 3)) & 7);
 	}
 
 	private int getPos(int r, int c) {

@@ -444,12 +444,12 @@ public class MazeFixingVis {
 			class solve implements Wrapper {
 				@Override
 				public String[] improve(String[] maze, int F) {
-					return new MazeFixing2().improve(maze, F);
+					return new MazeFixing3().improve(maze, F);
 				}
 			}
 			vis = false;
-			final long init = 56;
-			final long last = 56;
+			final long init = 1;
+			final long last = 1;
 			double sum = 0;
 			for (long seed = init; seed <= last; ++seed) {
 				sum += new MazeFixingVis().runTest(new solve(), seed);
