@@ -444,12 +444,12 @@ public class MazeFixingVis {
 			class solve implements Wrapper {
 				@Override
 				public String[] improve(String[] maze, int F) {
-					return new MazeFixing3().improve(maze, F);
+					return new MazeFixing2().improve(maze, F);
 				}
 			}
 			vis = false;
 			final long init = 1;
-			final long last = 1;
+			final long last = 10;
 			double sum = 0;
 			for (long seed = init; seed <= last; ++seed) {
 				sum += new MazeFixingVis().runTest(new solve(), seed);
@@ -469,7 +469,7 @@ public class MazeFixingVis {
 		vis = false;
 		debug = false;
 		final ParameterClass sum = new ParameterClass();
-		ExecutorService es = Executors.newFixedThreadPool(2);
+		ExecutorService es = Executors.newFixedThreadPool(4);
 
 		for (int seed = 1, size = seed + 1000; seed < size; seed++) {
 			final int Seed = seed;
@@ -478,7 +478,7 @@ public class MazeFixingVis {
 					class solve implements Wrapper {
 						@Override
 						public String[] improve(String[] maze, int F) {
-							return new MazeFixing3().improve(maze, F);
+							return new MazeFixing2().improve(maze, F);
 						}
 					}
 					long time = System.currentTimeMillis();
@@ -512,7 +512,7 @@ public class MazeFixingVis {
 		debug = false;
 		final ParameterClass sum1 = new ParameterClass();
 		final ParameterClass sum2 = new ParameterClass();
-		ExecutorService es = Executors.newFixedThreadPool(2);
+		ExecutorService es = Executors.newFixedThreadPool(4);
 
 		for (int seed = 1, size = seed + 1000; seed < size; seed++) {
 			final int Seed = seed;
@@ -538,7 +538,7 @@ public class MazeFixingVis {
 					class solve2 implements Wrapper {
 						@Override
 						public String[] improve(String[] maze, int F) {
-							return new MazeFixing3().improve(maze, F);
+							return new MazeFixing().improve(maze, F);
 						}
 					}
 					long time2 = System.currentTimeMillis();

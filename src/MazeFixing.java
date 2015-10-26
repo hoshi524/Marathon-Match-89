@@ -1,90 +1,77 @@
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map.Entry;
 
 public class MazeFixing {
 
 	private static final int MAX_TIME = 9500;
-	private static final Cell cell[] = new Cell[] { Cell.L, Cell.R, Cell.S };
 	private final long endTime = System.currentTimeMillis() + MAX_TIME;
 
-	private int W, H, WH, F, dir[], startPos[], startDir[], notN[];
-	private Cell init[];
+	private int W, WH, S[][], init[];
 
 	public String[] improve(String[] maze, int F) {
-		H = maze.length;
+		int H = maze.length;
 		W = maze[0].length() - 1;
 		WH = W * H;
-		this.F = F;
-		dir = new int[] { 1, -1, W, -W };
-		Cell m[] = new Cell[WH];
+		init = new int[WH];
 		for (int i = 0; i < H; ++i) {
-			for (int j = 0; j + 1 < maze[i].length(); ++j) {
-				m[getPos(i, j)] = Cell.get(maze[i].charAt(j));
+			for (int j = 0; j < W; ++j) {
+				int p = getPos(i, j);
+				init[p] = Cell.get(maze[i].charAt(j));
 			}
 		}
-		init = Arrays.copyOf(m, m.length);
 		{
-			List<Integer> spos = new ArrayList<>();
-			List<Integer> sdir = new ArrayList<>();
-			List<Integer> cell = new ArrayList<>();
+			List<int[]> slist = new ArrayList<>();
 			for (int i = 0; i < WH; ++i) {
-				if (m[i] != Cell.N) {
-					cell.add(i);
-					for (int d : dir) {
-						int n = i + d;
-						if (m[n] == Cell.N) {
-							spos.add(i);
-							sdir.add(-d);
-						}
-					}
+				if (init[i] != Cell.N) {
+					if (init[i + 1] == Cell.N) slist.add(new int[] { i, -1 });
+					if (init[i - 1] == Cell.N) slist.add(new int[] { i, 1 });
+					if (init[i + W] == Cell.N) slist.add(new int[] { i, -W });
+					if (init[i - W] == Cell.N) slist.add(new int[] { i, W });
 				}
 			}
-			startPos = toArray(spos);
-			startDir = toArray(sdir);
-			notN = toArray(cell);
+			S = toArray(slist);
 		}
 		XorShift rnd = new XorShift();
-		State now = new State(m);
+		State now = new State(init);
 		int score = 0;
-		Cell best[] = Arrays.copyOf(init, WH);
-		int pos[] = new int[notN.length << 1], pi = 0;
-		int dpos[] = new int[notN.length], f = 0;
-		for (int j : notN) {
-			if (now.m[j] == Cell.U && f < F) {
-				now.m[j] = Cell.S;
+		int best[] = Arrays.copyOf(init, WH);
+		int pos[] = new int[WH << 1], pi = 0;
+		int dpos[] = new int[WH], f = 0;
+		for (int p = 10; p < WH; ++p) {
+			if (now.m[p] == Cell.U && f < F) {
+				now.m[p] = Cell.S;
 				++f;
 			}
 		}
 		now.calc();
-		HashMap<Integer, Cell> next = new HashMap<>(), map = new HashMap<>();
-		for (int turn = 0;; ++turn) {
+		int next[] = new int[6], x[] = new int[6];
+		while (true) {
 			f = pi = 0;
-			for (int j : notN) {
-				if (now.m[j] != init[j]) {
-					dpos[f++] = j;
-					// if (init[j] != Cell.U) dpos[f++] = j;
+			for (int p = 10; p < WH; ++p) {
+				if (now.m[p] == Cell.E || now.m[p] == Cell.N) continue;
+				if (now.m[p] != init[p]) {
+					dpos[f++] = p;
 				}
-				if (now.m[j] != Cell.E && now.b[j] > 0) {
-					pos[pi++] = j;
-					if (now.m[j] == Cell.U) pos[pi++] = j;
+				if (now.b[p] + now.a[p] > 0) {
+					pos[pi++] = p;
+					if (now.m[p] == Cell.U) pos[pi++] = p;
 				}
 			}
 			int value = 0;
-			for (int i = 0; i < 80; ++i) {
-				map.clear();
-				if (rnd.next(F) < f) {
-					int a = dpos[rnd.next(f)];
-					map.put(a, init[a]);
+			for (int i = 0; i < 100; ++i) {
+				x[0] = 0;
+				if (f == F) {
+					int a = dpos[rnd.next(F)];
+					x[(++x[0] << 1)] = a;
+					x[(x[0] << 1) + 1] = init[a];
 				}
-				map.put(pos[rnd.next(pi)], cell[rnd.next(cell.length)]);
-				int tmp = now.value(map, f);
+				x[(++x[0] << 1)] = pos[rnd.next(pi)];
+				x[(x[0] << 1) + 1] = rnd.next(3);
+				int tmp = now.value(x);
 				if (value < tmp) {
 					value = tmp;
-					next.clear();
-					next.putAll(map);
+					System.arraycopy(x, 0, next, 0, x.length);
 				}
 			}
 			value = now.update(next);
@@ -93,246 +80,212 @@ public class MazeFixing {
 				System.arraycopy(now.m, 0, best, 0, WH);
 			}
 			if (System.currentTimeMillis() > endTime) {
-				System.err.println("turn : " + turn);
 				return toAnswer(best);
 			}
 		}
 	}
 
 	private final class State {
-		int ac;
-		Cell m[] = new Cell[WH];
-		int a[] = new int[WH], b[] = new int[WH], start[][] = new int[WH][64];
-		int si[] = new int[WH];
-		boolean used[] = new boolean[WH];
+		private int m[], a[] = new int[WH], b[] = new int[WH];
+		private int sa[][] = new int[S.length][WH], sb[][] = new int[S.length][WH];
+		private int start[][] = new int[WH][64];
 
-		State(Cell m[]) {
-			System.arraycopy(m, 0, this.m, 0, WH);
+		State(int m[]) {
+			this.m = Arrays.copyOf(m, WH);
 		}
 
 		void calc() {
 			Arrays.fill(a, 0);
 			Arrays.fill(b, 0);
-			Arrays.fill(si, 0);
-			for (int i = 0; i < startPos.length; ++i) {
-				dfs(i, a, m, startPos[i], startDir[i], b);
-			}
-			ac = 0;
-			for (int p : notN) {
-				if (a[p] > 0) ++ac;
+			for (int p = 0; p < WH; ++p)
+				start[p][0] = 0;
+			for (int i = 0; i < S.length; ++i) {
+				Arrays.fill(sa[i], 0);
+				Arrays.fill(sb[i], 0);
+				dfs(i, sa[i], m, S[i][0], S[i][1], sb[i]);
+				for (int p = 10; p < WH; ++p) {
+					a[p] += sa[i][p];
+					b[p] += sb[i][p];
+				}
 			}
 		}
 
-		int value(HashMap<Integer, Cell> map, int f) {
-			boolean ud[] = new boolean[startPos.length];
-			Cell tmp[] = Arrays.copyOf(m, WH);
-			int delA[] = new int[WH];
-			int delB[] = new int[WH];
-			int addA[] = new int[WH];
-			int addB[] = new int[WH];
-			int buf[] = new int[0xff], bi = 0;
-			for (Entry<Integer, Cell> entry : map.entrySet()) {
-				int p = entry.getKey();
-				Cell c = entry.getValue();
-				if (m[p] != c) {
-					for (int i = 0, size = si[p]; i < size; ++i) {
-						int x = start[p][i];
-						if (!ud[x]) {
-							ud[x] = true;
-							buf[bi++] = x;
-						}
-					}
+		private boolean ud[] = new boolean[S.length];
+		private int tmp[] = new int[WH];
+		private int tmpA[] = new int[WH];
+		private int tmpB[] = new int[WH];
+		private int buf[] = new int[64];
+
+		int value(int change[]) {
+			Arrays.fill(ud, true);
+			System.arraycopy(m, 0, tmp, 0, WH);
+			System.arraycopy(a, 0, tmpA, 0, WH);
+			System.arraycopy(b, 0, tmpB, 0, WH);
+			buf[0] = 0;
+
+			for (int i = 1; i <= change[0]; ++i) {
+				int p = change[(i << 1)], c = change[(i << 1) + 1];
+				if (tmp[p] != c) {
 					tmp[p] = c;
-				}
-			}
-			for (int i = 0; i < bi; ++i) {
-				int x = buf[i];
-				dfs(delA, m, startPos[x], startDir[x], delB);
-				dfs(addA, tmp, startPos[x], startDir[x], addB);
-			}
-			int ac = 0, bc = 0;
-			for (int p : notN) {
-				if (b[p] + addB[p] > delB[p]) {
-					++bc;
-					if (a[p] + addA[p] > delA[p]) ++ac;
-				}
-			}
-			// value
-			return (bc << 5) * (F - f) + ac * f;
-		}
-
-		int update(HashMap<Integer, Cell> map) {
-			boolean ud[] = new boolean[startPos.length];
-			int buf[] = new int[0xff], bi = 0;
-			for (Entry<Integer, Cell> entry : map.entrySet()) {
-				int p = entry.getKey();
-				Cell c = entry.getValue();
-				if (m[p] != c) {
-					for (int i = 0, size = si[p]; i < size; ++i) {
-						int x = start[p][i];
-						if (!ud[x]) {
-							ud[x] = true;
-							buf[bi++] = x;
+					for (int j = 1; j <= start[p][0]; ++j) {
+						int x = start[p][j];
+						if (ud[x]) {
+							buf[++buf[0]] = x;
+							ud[x] = false;
 						}
 					}
 				}
 			}
-			for (int i = 0; i < bi; ++i) {
+			for (int i = 1; i <= buf[0]; ++i) {
 				int x = buf[i];
-				delete(x, a, m, startPos[x], startDir[x], b);
-			}
-			for (Entry<Integer, Cell> entry : map.entrySet()) {
-				m[entry.getKey()] = entry.getValue();
-			}
-			for (int i = 0; i < bi; ++i) {
-				int x = buf[i];
-				dfs(x, a, m, startPos[x], startDir[x], b);
-			}
-			ac = 0;
-			for (int p : notN) {
-				if (a[p] > 0) ++ac;
-			}
-			return ac;
-		}
-
-		boolean dfs(int s, int a[], Cell m[], int p, int d, int b[]) {
-			if (used[p]) return false;
-			if (m[p] == Cell.N) return true;
-			boolean res;
-			used[p] = true;
-			++b[p];
-			if (m[p] == Cell.E) {
-				res = dfs(s, a, m, p + 1, 1, b);
-				res |= dfs(s, a, m, p - 1, -1, b);
-				res |= dfs(s, a, m, p + W, W, b);
-				res |= dfs(s, a, m, p - W, -W, b);
-			} else {
-				if (si[p] == 0 || start[p][si[p] - 1] != s) start[p][si[p]++] = s;
-				if (m[p] == Cell.R) {
-					if (d == 1) d = W;
-					else if (d == -1) d = -W;
-					else if (d == W) d = -1;
-					else if (d == -W) d = 1;
-				} else if (m[p] == Cell.L) {
-					if (d == 1) d = -W;
-					else if (d == -1) d = W;
-					else if (d == W) d = 1;
-					else if (d == -W) d = -1;
-				} else if (m[p] == Cell.U) {
-					d = -d;
+				for (int p = 10; p < WH; ++p) {
+					tmpA[p] -= sa[x][p];
+					tmpB[p] -= sb[x][p];
 				}
-				res = dfs(s, a, m, p + d, d, b);
+				dfs(tmpA, tmp, S[x][0], S[x][1], tmpB);
 			}
-			used[p] = false;
-			if (res) ++a[p];
-			return res;
+			int v = 0;
+			for (int p = 10; p < WH; ++p) {
+				if (tmpA[p] > 0) v += 2;
+				else if (tmpB[p] > 0) v += 1;
+			}
+			return v;
 		}
 
-		boolean dfs(int a[], Cell m[], int p, int d, int b[]) {
-			if (used[p]) return false;
-			if (m[p] == Cell.N) return true;
-			boolean res;
-			used[p] = true;
-			++b[p];
-			if (m[p] == Cell.E) {
-				res = dfs(a, m, p + 1, 1, b);
-				res |= dfs(a, m, p - 1, -1, b);
-				res |= dfs(a, m, p + W, W, b);
-				res |= dfs(a, m, p - W, -W, b);
-			} else {
-				if (m[p] == Cell.R) {
-					if (d == 1) d = W;
-					else if (d == -1) d = -W;
-					else if (d == W) d = -1;
-					else if (d == -W) d = 1;
-				} else if (m[p] == Cell.L) {
-					if (d == 1) d = -W;
-					else if (d == -1) d = W;
-					else if (d == W) d = 1;
-					else if (d == -W) d = -1;
-				} else if (m[p] == Cell.U) {
-					d = -d;
-				}
-				res = dfs(a, m, p + d, d, b);
-			}
-			used[p] = false;
-			if (res) ++a[p];
-			return res;
-		}
+		int update(int change[]) {
+			Arrays.fill(ud, true);
+			buf[0] = 0;
 
-		boolean delete(int s, int a[], Cell m[], int p, int d, int b[]) {
-			if (used[p]) return false;
-			if (m[p] == Cell.N) return true;
-			boolean res;
-			used[p] = true;
-			--b[p];
-			if (m[p] == Cell.E) {
-				res = delete(s, a, m, p + 1, 1, b);
-				res |= delete(s, a, m, p - 1, -1, b);
-				res |= delete(s, a, m, p + W, W, b);
-				res |= delete(s, a, m, p - W, -W, b);
-			} else {
-				for (int i = 0; i < si[p]; ++i) {
-					if (start[p][i] == s) {
-						start[p][i] = start[p][--si[p]];
-						break;
+			for (int i = 1; i <= change[0]; ++i) {
+				int p = change[(i << 1)], c = change[(i << 1) + 1];
+				if (m[p] != c) {
+					m[p] = c;
+					for (int j = 1; j <= start[p][0]; ++j) {
+						int x = start[p][j];
+						if (ud[x]) {
+							buf[++buf[0]] = x;
+							ud[x] = false;
+						}
 					}
 				}
-				if (m[p] == Cell.R) {
-					if (d == 1) d = W;
-					else if (d == -1) d = -W;
-					else if (d == W) d = -1;
-					else if (d == -W) d = 1;
-				} else if (m[p] == Cell.L) {
-					if (d == 1) d = -W;
-					else if (d == -1) d = W;
-					else if (d == W) d = 1;
-					else if (d == -W) d = -1;
-				} else if (m[p] == Cell.U) {
-					d = -d;
-				}
-				res = delete(s, a, m, p + d, d, b);
 			}
-			used[p] = false;
-			if (res) --a[p];
+			for (int i = 1; i <= buf[0]; ++i) {
+				int x = buf[i];
+				for (int p = 10; p < WH; ++p) {
+					if (sa[x][p] + sb[x][p] > 0) {
+						a[p] -= sa[x][p];
+						b[p] -= sb[x][p];
+						sa[x][p] = 0;
+						sb[x][p] = 0;
+						for (int k = 1; k <= start[p][0]; ++k) {
+							if (start[p][k] == x) {
+								start[p][k] = start[p][start[p][0]--];
+								break;
+							}
+						}
+					}
+				}
+				dfs(x, sa[x], m, S[x][0], S[x][1], sb[x]);
+				for (int p = 10; p < WH; ++p) {
+					a[p] += sa[x][p];
+					b[p] += sb[x][p];
+				}
+			}
+			int score = 0;
+			for (int p = 10; p < WH; ++p) {
+				if (a[p] > 0) ++score;
+			}
+			return score;
+		}
+
+		private boolean dfs(int s, int a[], int m[], int p, int d, int b[]) {
+			int c = m[p];
+			if (c == Cell.N) return true;
+			boolean res = false;
+			m[p] = Cell.B;
+			if (c == Cell.E) {
+				if (m[p + 1] != Cell.B) res = dfs(s, a, m, p + 1, 1, b);
+				if (m[p - 1] != Cell.B) res |= dfs(s, a, m, p - 1, -1, b);
+				if (m[p + W] != Cell.B) res |= dfs(s, a, m, p + W, W, b);
+				if (m[p - W] != Cell.B) res |= dfs(s, a, m, p - W, -W, b);
+			} else {
+				if (start[p][0] == 0 || start[p][start[p][0]] != s) start[p][++start[p][0]] = s;
+				int x = dir(c, d);
+				if (m[p + x] != Cell.B) res = dfs(s, a, m, p + x, x, b);
+			}
+			m[p] = c;
+			if (res) ++a[p];
+			else ++b[p];
 			return res;
+		}
+
+		private boolean dfs(int a[], int m[], int p, int d, int b[]) {
+			int c = m[p];
+			if (c == Cell.N) return true;
+			boolean res = false;
+			m[p] = Cell.B;
+			if (c == Cell.E) {
+				if (m[p + 1] != Cell.B) res = dfs(a, m, p + 1, 1, b);
+				if (m[p - 1] != Cell.B) res |= dfs(a, m, p - 1, -1, b);
+				if (m[p + W] != Cell.B) res |= dfs(a, m, p + W, W, b);
+				if (m[p - W] != Cell.B) res |= dfs(a, m, p - W, -W, b);
+			} else {
+				int x = dir(c, d);
+				if (m[p + x] != Cell.B) res = dfs(a, m, p + x, x, b);
+			}
+			m[p] = c;
+			if (res) ++a[p];
+			else ++b[p];
+			return res;
+		}
+
+		private int dir(int c, int d) {
+			if (c == Cell.R) {
+				if (d == 1) return W;
+				else if (d == -1) return -W;
+				else if (d == W) return -1;
+				else if (d == -W) return 1;
+			} else if (c == Cell.L) {
+				if (d == 1) return -W;
+				else if (d == -1) return W;
+				else if (d == W) return 1;
+				else if (d == -W) return -1;
+			} else if (c == Cell.U) {
+				return -d;
+			}
+			return d;
 		}
 	}
 
-	private String[] toAnswer(Cell m[]) {
+	private String[] toAnswer(int m[]) {
 		ArrayList<String> res = new ArrayList<>();
-		int buf[][] = new int[Cell.values().length][Cell.values().length], c = 0;
-		for (int i : notN) {
+		for (int i = 0; i < WH; ++i) {
 			if (m[i] != init[i]) {
-				res.add(getRow(i) + " " + getCol(i) + " " + m[i]);
-				++c;
-				++buf[init[i].ordinal()][m[i].ordinal()];
+				res.add(getRow(i) + " " + getCol(i) + " " + Cell.get(m[i]));
 			}
-		}
-		if (false) {
-			StringBuilder s = new StringBuilder();
-			s.append("sum : " + c + "\n");
-			for (Cell a : Cell.values()) {
-				for (Cell b : Cell.values()) {
-					if (a != Cell.N && b != Cell.N && a != Cell.E && b != Cell.U && b != Cell.E && a != b) s.append(a.name() + " -> "
-							+ b.name() + " : " + buf[a.ordinal()][b.ordinal()] + "\n");
-				}
-			}
-			System.err.print(s.toString());
 		}
 		return res.toArray(new String[0]);
 	}
 
-	private static enum Cell {
-		N, R, L, U, S, E;
+	private static final class Cell {
+		static final int R = 0, L = 1, S = 2, U = 3, E = 4, N = 5, B = 6;
 
-		static Cell get(char c) {
+		static final int get(char c) {
 			if (c == 'R') return R;
 			else if (c == 'L') return L;
 			else if (c == 'U') return U;
 			else if (c == 'S') return S;
 			else if (c == 'E') return E;
 			return N;
+		}
+
+		static final char get(int c) {
+			if (c == R) return 'R';
+			else if (c == L) return 'L';
+			else if (c == U) return 'U';
+			else if (c == S) return 'S';
+			else if (c == E) return 'E';
+			return 'N';
 		}
 	}
 
@@ -348,8 +301,8 @@ public class MazeFixing {
 		return p % W;
 	}
 
-	private int[] toArray(List<Integer> list) {
-		int res[] = new int[list.size()];
+	private int[][] toArray(List<int[]> list) {
+		int res[][] = new int[list.size()][];
 		for (int i = 0; i < res.length; ++i) {
 			res[i] = list.get(i);
 		}
@@ -357,10 +310,10 @@ public class MazeFixing {
 	}
 
 	private static final class XorShift {
-		int x = 123456789;
-		int y = 362436069;
-		int z = 521288629;
-		int w = 88675123;
+		private int x = 123456789;
+		private int y = 362436069;
+		private int z = 521288629;
+		private int w = 88675123;
 
 		int next(final int n) {
 			final int t = x ^ (x << 11);
@@ -374,6 +327,6 @@ public class MazeFixing {
 	}
 
 	private void debug(Object... o) {
-		System.out.println(Arrays.deepToString(o));
+		System.err.println(Arrays.deepToString(o));
 	}
 }

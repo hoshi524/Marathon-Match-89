@@ -7,13 +7,12 @@ public class MazeFixing2 {
 	private static final int MAX_TIME = 9500;
 	private final long endTime = System.currentTimeMillis() + MAX_TIME;
 
-	private int W, WH, F, S[][], init[];
+	private int W, WH, S[][], init[];
 
 	public String[] improve(String[] maze, int F) {
 		int H = maze.length;
 		W = maze[0].length() - 1;
 		WH = W * H;
-		this.F = F;
 		init = new int[WH];
 		for (int i = 0; i < H; ++i) {
 			for (int j = 0; j < W; ++j) {
@@ -62,15 +61,14 @@ public class MazeFixing2 {
 			int value = 0;
 			for (int i = 0; i < 100; ++i) {
 				x[0] = 0;
-				int dpi = rnd.next(F);
-				if (dpi < f) {
-					int a = dpos[dpi];
+				if (f == F) {
+					int a = dpos[rnd.next(F)];
 					x[(++x[0] << 1)] = a;
 					x[(x[0] << 1) + 1] = init[a];
 				}
 				x[(++x[0] << 1)] = pos[rnd.next(pi)];
 				x[(x[0] << 1) + 1] = rnd.next(3);
-				int tmp = now.value(x, f);
+				int tmp = now.value(x);
 				if (value < tmp) {
 					value = tmp;
 					System.arraycopy(x, 0, next, 0, x.length);
@@ -90,7 +88,7 @@ public class MazeFixing2 {
 	private final class State {
 		private int m[], a[] = new int[WH], b[] = new int[WH];
 		private int sa[][] = new int[S.length][WH], sb[][] = new int[S.length][WH];
-		private int start[][] = new int[WH][50];
+		private int start[][] = new int[WH][64];
 
 		State(int m[]) {
 			this.m = Arrays.copyOf(m, WH);
@@ -118,24 +116,24 @@ public class MazeFixing2 {
 		private int tmpB[] = new int[WH];
 		private int buf[] = new int[64];
 
-		int value(int change[], int f) {
-			Arrays.fill(ud, false);
+		int value(int change[]) {
+			Arrays.fill(ud, true);
 			System.arraycopy(m, 0, tmp, 0, WH);
-			Arrays.fill(tmpA, 0);
-			Arrays.fill(tmpB, 0);
+			System.arraycopy(a, 0, tmpA, 0, WH);
+			System.arraycopy(b, 0, tmpB, 0, WH);
 			buf[0] = 0;
 
 			for (int i = 1; i <= change[0]; ++i) {
 				int p = change[(i << 1)], c = change[(i << 1) + 1];
 				if (tmp[p] != c) {
+					tmp[p] = c;
 					for (int j = 1; j <= start[p][0]; ++j) {
 						int x = start[p][j];
-						if (!ud[x]) {
-							ud[x] = true;
+						if (ud[x]) {
 							buf[++buf[0]] = x;
+							ud[x] = false;
 						}
 					}
-					tmp[p] = c;
 				}
 			}
 			for (int i = 1; i <= buf[0]; ++i) {
@@ -146,30 +144,29 @@ public class MazeFixing2 {
 				}
 				dfs(tmpA, tmp, S[x][0], S[x][1], tmpB);
 			}
-			int ac = 0, bc = 0;
+			int v = 0;
 			for (int p = 10; p < WH; ++p) {
-				if (a[p] + tmpA[p] > 0) ++ac;
-				else if (b[p] + tmpB[p] > 0) ++bc;
+				if (tmpA[p] > 0) v += 2;
+				else if (tmpB[p] > 0) v += 1;
 			}
-			// value
-			return ((bc + ac) << 5) * (F - f) + ac * f;
+			return v;
 		}
 
 		int update(int change[]) {
-			Arrays.fill(ud, false);
+			Arrays.fill(ud, true);
 			buf[0] = 0;
 
 			for (int i = 1; i <= change[0]; ++i) {
 				int p = change[(i << 1)], c = change[(i << 1) + 1];
 				if (m[p] != c) {
+					m[p] = c;
 					for (int j = 1; j <= start[p][0]; ++j) {
 						int x = start[p][j];
-						if (!ud[x]) {
-							ud[x] = true;
+						if (ud[x]) {
 							buf[++buf[0]] = x;
+							ud[x] = false;
 						}
 					}
-					m[p] = c;
 				}
 			}
 			for (int i = 1; i <= buf[0]; ++i) {
@@ -202,9 +199,9 @@ public class MazeFixing2 {
 		}
 
 		private boolean dfs(int s, int a[], int m[], int p, int d, int b[]) {
-			if (m[p] == Cell.N) return true;
-			boolean res = false;
 			int c = m[p];
+			if (c == Cell.N) return true;
+			boolean res = false;
 			m[p] = Cell.B;
 			if (c == Cell.E) {
 				if (m[p + 1] != Cell.B) res = dfs(s, a, m, p + 1, 1, b);
@@ -218,14 +215,14 @@ public class MazeFixing2 {
 			}
 			m[p] = c;
 			if (res) ++a[p];
-			else++b[p];
+			else ++b[p];
 			return res;
 		}
 
 		private boolean dfs(int a[], int m[], int p, int d, int b[]) {
-			if (m[p] == Cell.N) return true;
-			boolean res = false;
 			int c = m[p];
+			if (c == Cell.N) return true;
+			boolean res = false;
 			m[p] = Cell.B;
 			if (c == Cell.E) {
 				if (m[p + 1] != Cell.B) res = dfs(a, m, p + 1, 1, b);
@@ -238,7 +235,7 @@ public class MazeFixing2 {
 			}
 			m[p] = c;
 			if (res) ++a[p];
-			else++b[p];
+			else ++b[p];
 			return res;
 		}
 
